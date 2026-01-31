@@ -78,6 +78,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/set-password`);
   }
 
+  if (profileError && (profileError.code === "42P01" || profileError.code === "42703")) {
+    console.warn("Profiles schema not ready yet. Redirecting to set password.");
+    return NextResponse.redirect(`${origin}/set-password`);
+  }
+
   if (profileError) {
     console.error("Error fetching profile:", profileError.message);
     return NextResponse.redirect(`${origin}/login?error=profile_error`);
