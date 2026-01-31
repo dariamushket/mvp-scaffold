@@ -1,178 +1,206 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
-import { Header } from "@/components/layouts";
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
-import { ArrowRight, Calendar, Download, TrendingUp, AlertTriangle, Target } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Button, Card, CardContent } from "@/components/ui";
+import { ArrowLeft, Calendar, Loader2, AlertTriangle } from "lucide-react";
 
-// TODO: Fetch actual results from database based on assessment
-const MOCK_RESULTS = {
-  score: 72,
-  maxScore: 100,
-  businessType: "Growth-Stage Startup",
-  bottleneck: "Operations & Systems",
-  strengths: ["Strong product-market fit", "Growing customer base", "Solid revenue foundation"],
-  improvements: ["Process documentation", "Team delegation", "Scalable systems"],
-};
+const BOOKING_URL = "https://calendly.com/psei/executive-diagnose";
 
-export default function ResultsPage() {
-  const scorePercentage = (MOCK_RESULTS.score / MOCK_RESULTS.maxScore) * 100;
+function getScoreLabel(score: number): string {
+  if (score <= 1) return "Kritisch – Dringender Handlungsbedarf";
+  if (score <= 2) return "Unterdurchschnittlich – Verbesserungspotenzial";
+  if (score <= 3) return "Durchschnittlich – Solide Basis";
+  if (score <= 4) return "Gut – Auf gutem Weg";
+  return "Exzellent – Execution-fähig";
+}
+
+function getScoreColor(score: number): string {
+  if (score <= 1) return "text-red-600";
+  if (score <= 2) return "text-orange-500";
+  if (score <= 3) return "text-yellow-600";
+  if (score <= 4) return "text-[#2d8a8a]";
+  return "text-green-600";
+}
+
+function ResultsContent() {
+  const searchParams = useSearchParams();
+
+  const score = Number(searchParams.get("score") ?? 3);
+  const type = searchParams.get("type") ?? "Wachstum mit Reibung";
+  const bottleneck = searchParams.get("bottleneck") ?? "Strategische Klarheit";
+  const leadId = searchParams.get("leadId");
+
+  // Convert 0-5 score to percentage for display
+  const scorePercent = Math.round((score / 5) * 100);
+  const scoreLabel = getScoreLabel(score);
+  const scoreColor = getScoreColor(score);
 
   return (
-    <div className="min-h-screen">
-      <Header variant="public" />
+    <div className="min-h-screen bg-[#f0f7f7]">
+      {/* Header */}
+      <header className="border-b bg-white">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/assessment"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-[#2d8a8a]"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Zurück zur Übersicht
+            </Link>
+          </div>
+          <div className="text-xl font-bold text-[#2d8a8a]">PSEI</div>
+        </div>
+      </header>
 
-      <main className="container mx-auto max-w-4xl px-4 py-12">
-        {/* Score Header */}
-        <div className="mb-12 text-center">
-          <h1 className="mb-4 text-3xl font-bold">Your Assessment Results</h1>
-          <p className="text-muted-foreground">
-            Here&apos;s what we discovered about your business
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        {/* Title Section */}
+        <div className="mb-8 text-center">
+          <p className="text-sm font-medium uppercase tracking-wide text-[#2d8a8a]">
+            PSEI ERGEBNIS
+          </p>
+          <h1 className="mt-2 text-3xl font-bold text-[#0f2b3c]">
+            Executive Scorecard
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            People Strategy & Execution Index
           </p>
         </div>
 
-        {/* Score Card */}
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center md:flex-row md:gap-12">
-              {/* Score Circle */}
-              <div className="relative mb-6 flex h-48 w-48 items-center justify-center md:mb-0">
-                <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    className="text-muted"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    strokeDasharray={`${scorePercentage * 2.51} 251`}
-                    className="text-primary"
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center">
-                  <span className="text-4xl font-bold">{MOCK_RESULTS.score}</span>
-                  <span className="text-sm text-muted-foreground">
-                    out of {MOCK_RESULTS.maxScore}
+        {/* Main Score Card */}
+        <Card className="mb-6 rounded-2xl border-0 shadow-lg">
+          <CardContent className="p-8">
+            <div className="grid gap-8 md:grid-cols-2">
+              {/* Score Display */}
+              <div className="text-center md:text-left">
+                <div className="flex items-baseline justify-center gap-1 md:justify-start">
+                  <span className={`text-7xl font-bold ${scoreColor}`}>
+                    {scorePercent}
                   </span>
+                  <span className="text-2xl text-muted-foreground">/100</span>
                 </div>
+                <p className="mt-2 text-lg font-medium text-[#0f2b3c]">
+                  {scoreLabel}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Unternehmenstyp: {type}
+                </p>
               </div>
 
-              {/* Score Details */}
-              <div className="flex-1 text-center md:text-left">
-                <div className="mb-4">
-                  <Badge variant="secondary" className="mb-2">
-                    <Target className="mr-1 h-3 w-3" />
-                    {MOCK_RESULTS.businessType}
-                  </Badge>
+              {/* Bottleneck Highlight */}
+              <div className="rounded-xl bg-amber-50 p-6">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-200">
+                    <AlertTriangle className="h-3 w-3 text-amber-700" />
+                  </span>
+                  <span className="text-sm font-medium text-amber-700">
+                    Wachstumsengpass
+                  </span>
                 </div>
-                <h2 className="mb-2 text-2xl font-bold">Your Growth Score</h2>
-                <p className="text-muted-foreground">
-                  Your business shows strong potential with room for improvement in key areas.
+                <h3 className="text-xl font-semibold text-[#0f2b3c]">
+                  {bottleneck}
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Diese Dimension begrenzt aktuell die Gesamtleistung und sollte
+                  priorisiert werden.
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Bottleneck Card */}
-        <Card className="mb-8 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-5 w-5" />
-              Primary Bottleneck Identified
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <h3 className="mb-2 text-xl font-semibold">{MOCK_RESULTS.bottleneck}</h3>
-            <p className="text-muted-foreground">
-              This is the area that&apos;s most limiting your business growth. Addressing this
-              bottleneck should be your top priority.
+        {/* Interpretation Card */}
+        <Card className="mb-6 rounded-2xl border-0 shadow-lg">
+          <CardContent className="p-8">
+            <p className="text-sm font-medium uppercase tracking-wide text-[#2d8a8a]">
+              INTERPRETATION
             </p>
-          </CardContent>
-        </Card>
-
-        {/* Strengths & Improvements */}
-        <div className="mb-8 grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                <TrendingUp className="h-5 w-5" />
-                Key Strengths
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {MOCK_RESULTS.strengths.map((strength, index) => (
-                  <li key={index} className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-400">
-                      {index + 1}
-                    </span>
-                    {strength}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Areas for Improvement
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {MOCK_RESULTS.improvements.map((improvement, index) => (
-                  <li key={index} className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    {improvement}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* CTA Section */}
-        <Card className="bg-primary text-primary-foreground">
-          <CardContent className="py-8 text-center">
-            <h2 className="mb-2 text-2xl font-bold">Ready to Accelerate Your Growth?</h2>
-            <p className="mb-6 text-primary-foreground/80">
-              Book a free strategy session to discuss your results and create a customized action
-              plan.
-            </p>
-            <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <Button size="lg" variant="secondary">
-                <Calendar className="mr-2 h-4 w-4" />
-                Book Strategy Session
-              </Button>
-              <Button size="lg" variant="outline" className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
-                <Download className="mr-2 h-4 w-4" />
-                Download Full Report
-              </Button>
+            <h2 className="mt-2 text-xl font-semibold text-[#0f2b3c]">
+              {type === "Reaktiv / Firefighting"
+                ? "Ihr Unternehmen ist im Krisenmodus"
+                : type === "Wachstum mit Reibung"
+                  ? "Ihr Unternehmen wächst, aber mit Reibungsverlusten"
+                  : "Ihr Unternehmen ist gut aufgestellt"}
+            </h2>
+            <div className="mt-4 space-y-2 text-muted-foreground">
+              {score <= 2 ? (
+                <>
+                  <p>• Hoher operativer Druck verhindert strategisches Arbeiten</p>
+                  <p>• Entscheidungen werden reaktiv statt proaktiv getroffen</p>
+                  <p>• Wachstum ist aktuell nicht skalierbar</p>
+                </>
+              ) : score <= 4 ? (
+                <>
+                  <p>• Gute Grundstrukturen sind vorhanden</p>
+                  <p>• Einzelne Engpässe bremsen das Wachstum</p>
+                  <p>• Mit gezielten Maßnahmen ist Skalierung möglich</p>
+                </>
+              ) : (
+                <>
+                  <p>• Klare strategische Ausrichtung</p>
+                  <p>• Hohe Umsetzungsqualität</p>
+                  <p>• Wachstum ist planbar</p>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Return Link */}
-        <div className="mt-8 text-center">
-          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
-            <ArrowRight className="mr-1 inline h-4 w-4 rotate-180" />
-            Return to Home
-          </Link>
+        {/* Warning Card */}
+        <Card className="mb-8 rounded-2xl border-0 bg-[#fff5f5] shadow-lg">
+          <CardContent className="p-8">
+            <p className="text-sm font-medium text-red-600">
+              Was passiert, wenn Sie jetzt nicht handeln?
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-[#0f2b3c]">
+              Kosten der Nicht-Entscheidung
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Jeder Monat ohne Intervention am identifizierten Engpass verstärkt
+              systemische Schwächen. Die Kosten manifestieren sich nicht linear,
+              sondern exponentiell in Form von Opportunitätsverlusten,
+              Talentabwanderung und strategischer Drift.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* CTA Section */}
+        <div className="rounded-2xl bg-[#2d8a8a] p-8 text-center text-white">
+          <Button
+            asChild
+            className="h-12 rounded-lg bg-white px-8 text-[#2d8a8a] hover:bg-gray-100"
+          >
+            <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer">
+              <Calendar className="mr-2 h-5 w-5" />
+              Executive Diagnose buchen
+            </a>
+          </Button>
+          <p className="mt-4 text-sm text-white/80">
+            Buchen Sie eine kostenlose Analyse mit einem unserer Experten
+          </p>
         </div>
+
+        {/* Lead ID reference (hidden, for tracking) */}
+        {leadId && (
+          <input type="hidden" name="leadId" value={leadId} />
+        )}
       </main>
     </div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#f0f7f7]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#2d8a8a]" />
+        </div>
+      }
+    >
+      <ResultsContent />
+    </Suspense>
   );
 }
