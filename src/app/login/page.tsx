@@ -11,7 +11,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/app";
+  const redirect = searchParams.get("redirect") || "/portal";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

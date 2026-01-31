@@ -39,7 +39,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Define protected routes
-  const isPortalRoute = request.nextUrl.pathname.startsWith("/app");
+  const isPortalRoute =
+    request.nextUrl.pathname.startsWith("/app") ||
+    request.nextUrl.pathname.startsWith("/portal");
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   const isLoginRoute = request.nextUrl.pathname === "/login";
   const isSetPasswordRoute = request.nextUrl.pathname === "/set-password";
@@ -60,7 +62,7 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect authenticated users away from login page
   if (user && isLoginRoute) {
-    const redirect = request.nextUrl.searchParams.get("redirect") || "/app";
+    const redirect = request.nextUrl.searchParams.get("redirect") || "/portal";
     const url = request.nextUrl.clone();
     url.pathname = redirect;
     url.searchParams.delete("redirect");

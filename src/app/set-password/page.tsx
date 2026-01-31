@@ -78,7 +78,7 @@ export default function SetPasswordPage() {
 
     // Redirect to portal after a short delay
     setTimeout(() => {
-      router.push("/app");
+      router.push("/portal");
       router.refresh();
     }, 1500);
   };
