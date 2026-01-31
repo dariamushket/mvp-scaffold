@@ -32,6 +32,7 @@ export async function getProfile(): Promise<Profile | null> {
         id: user.id,
         role: "customer" as UserRole, // Default role for development
         company_id: null,
+        has_password: true, // Assume true for dev
         created_at: user.created_at,
         updated_at: user.created_at,
       };

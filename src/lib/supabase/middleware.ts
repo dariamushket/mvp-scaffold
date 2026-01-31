@@ -42,9 +42,16 @@ export async function updateSession(request: NextRequest) {
   const isPortalRoute = request.nextUrl.pathname.startsWith("/app");
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   const isLoginRoute = request.nextUrl.pathname === "/login";
+  const isSetPasswordRoute = request.nextUrl.pathname === "/set-password";
+  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
+
+  // Allow auth callback to proceed without checks
+  if (isAuthCallback) {
+    return supabaseResponse;
+  }
 
   // Redirect unauthenticated users trying to access protected routes
-  if (!user && (isPortalRoute || isAdminRoute)) {
+  if (!user && (isPortalRoute || isAdminRoute || isSetPasswordRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);

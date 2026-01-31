@@ -7,6 +7,7 @@ export interface Profile {
   id: string;
   role: UserRole;
   company_id: string | null;
+  has_password: boolean;
   created_at: string;
   updated_at: string;
 }
