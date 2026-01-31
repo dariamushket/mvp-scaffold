@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, CardContent, Input, Label } from "@/components/ui";
 import { getClient } from "@/lib/supabase/client";
@@ -10,12 +10,41 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/portal";
+  const code = searchParams.get("code");
+  const [isExchangingLink, setIsExchangingLink] = useState(!!code);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!code) {
+      setIsExchangingLink(false);
+      return;
+    }
+
+    const next = encodeURIComponent("/set-password");
+    const exchangeUrl = `/auth/callback?code=${encodeURIComponent(code)}&next=${next}`;
+    router.replace(exchangeUrl);
+  }, [code, redirect, router]);
+
+  if (isExchangingLink) {
+    return (
+      <Card className="w-full max-w-md rounded-2xl border-0 shadow-lg">
+        <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#2d8a8a]" />
+          <div>
+            <h2 className="text-lg font-semibold text-[#0f2b3c]">Link wird überprüft...</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bitte warten Sie einen Moment.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
