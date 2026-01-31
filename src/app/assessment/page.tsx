@@ -212,21 +212,17 @@ export default function AssessmentPage() {
   };
 
   return (
-    <div className={stage === "industry" ? "min-h-screen bg-[#f0f7f7]" : "min-h-screen"}>
-      {/* Custom header for industry selection to match design */}
-      {stage === "industry" ? (
-        <header className="border-b bg-[#f0f7f7] px-6 py-4">
-          <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <div>
-              <div className="text-lg font-bold text-[#0f2b3c]">PSEI</div>
-              <div className="text-xs text-[#c25b3f]">People Strategy & Execution Index</div>
-            </div>
-            <div className="text-xs tracking-widest text-[#0f2b3c]">EXECUTIVE DIAGNOSTIC SYSTEM</div>
+    <div className="min-h-screen bg-[#f0f7f7]">
+      {/* PSEI branded header */}
+      <header className="border-b border-[#e0ebeb] bg-[#f0f7f7] px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <div>
+            <div className="text-lg font-bold text-[#0f2b3c]">PSEI</div>
+            <div className="text-xs text-[#c25b3f]">People Strategy & Execution Index</div>
           </div>
-        </header>
-      ) : (
-        <Header variant="public" />
-      )}
+          <div className="text-xs tracking-widest text-[#0f2b3c]">EXECUTIVE DIAGNOSTIC SYSTEM</div>
+        </div>
+      </header>
 
       <main className="mx-auto max-w-5xl px-4 py-10">
         {/* Top back */}
@@ -294,18 +290,18 @@ export default function AssessmentPage() {
 
         {/* ====== ASSESSMENT ====== */}
         {stage === "assessment" && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Gesamtfortschritt */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Gesamtfortschritt</span>
-                <span>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Gesamtfortschritt</span>
+                <span className="font-medium text-[#0f2b3c]">
                   {answeredCount} / {TOTAL_QUESTIONS} Fragen ({overallProgress}%)
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[#d4e5e5]">
                 <div
-                  className="h-full bg-primary transition-all duration-300"
+                  className="h-full bg-[#2d8a8a] transition-all duration-300"
                   style={{ width: `${overallProgress}%` }}
                 />
               </div>
@@ -314,18 +310,20 @@ export default function AssessmentPage() {
             {/* Header line: title + dimension progress + scale legend */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div className="text-sm font-medium text-muted-foreground">PSEI Strategiediagnose</div>
-                <h1 className="mt-2 text-3xl font-semibold">{currentDimension.title}</h1>
+                <div className="text-sm font-medium text-[#0f2b3c]">PSEI Strategiediagnose</div>
+                <h1 className="mt-2 text-3xl font-semibold text-[#0f2b3c]">
+                  {currentDimension.title}
+                </h1>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                   {currentDimension.description}
                 </p>
               </div>
 
               <div className="flex flex-col items-start gap-3 sm:items-end">
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-[#0f2b3c]">
                   Dimension {dimensionIndex + 1} / {DIMENSIONS.length}
                 </div>
-                <div className="rounded-full border bg-white px-4 py-2 text-xs text-muted-foreground">
+                <div className="rounded-full border border-gray-200 bg-white px-4 py-2 text-xs text-muted-foreground">
                   0 = Trifft nicht zu &nbsp;→&nbsp; 5 = Trifft vollständig zu
                 </div>
               </div>
@@ -334,10 +332,10 @@ export default function AssessmentPage() {
             {/* Questions */}
             <div className="space-y-3">
               {currentDimension.questions.map((q, idx) => (
-                <Card key={q.id} className="rounded-xl">
-                  <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm">
-                      <span className="mr-2 text-muted-foreground">{idx + 1}.</span>
+                <Card key={q.id} className="rounded-xl border-gray-200 bg-white shadow-sm">
+                  <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-[#0f2b3c]">
+                      <span className="mr-2 font-medium text-muted-foreground">{idx + 1}.</span>
                       {q.text}
                     </div>
 
@@ -350,10 +348,10 @@ export default function AssessmentPage() {
                             type="button"
                             onClick={() => setAnswer(q.id, v)}
                             className={[
-                              "h-10 w-10 rounded-lg border text-sm font-medium transition",
+                              "h-10 w-10 rounded-lg border text-sm font-medium transition-all",
                               selected
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-muted bg-white hover:bg-muted/30",
+                                ? "border-[#0f2b3c] bg-[#0f2b3c] text-white"
+                                : "border-gray-200 bg-white text-[#0f2b3c] hover:border-gray-300 hover:bg-gray-50",
                             ].join(" ")}
                           >
                             {v}
@@ -367,13 +365,21 @@ export default function AssessmentPage() {
             </div>
 
             {/* Footer nav */}
-            <div className="flex items-center justify-between pt-2">
-              <Button variant="outline" onClick={goBack}>
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                variant="ghost"
+                onClick={goBack}
+                className="text-muted-foreground hover:text-[#0f2b3c]"
+              >
                 Zurück
               </Button>
 
-              <Button onClick={goNext} disabled={!dimensionComplete}>
-                {dimensionIndex === DIMENSIONS.length - 1 ? "Weiter" : "Weiter"}
+              <Button
+                onClick={goNext}
+                disabled={!dimensionComplete}
+                className="min-w-32 bg-[#0f2b3c] hover:bg-[#1a3d52]"
+              >
+                Weiter
               </Button>
             </div>
           </div>
