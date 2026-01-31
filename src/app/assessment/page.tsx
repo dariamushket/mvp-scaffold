@@ -212,8 +212,21 @@ export default function AssessmentPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <Header variant="public" />
+    <div className={stage === "industry" ? "min-h-screen bg-[#f0f7f7]" : "min-h-screen"}>
+      {/* Custom header for industry selection to match design */}
+      {stage === "industry" ? (
+        <header className="border-b bg-[#f0f7f7] px-6 py-4">
+          <div className="mx-auto flex max-w-5xl items-center justify-between">
+            <div>
+              <div className="text-lg font-bold text-[#0f2b3c]">PSEI</div>
+              <div className="text-xs text-[#c25b3f]">People Strategy & Execution Index</div>
+            </div>
+            <div className="text-xs tracking-widest text-[#0f2b3c]">EXECUTIVE DIAGNOSTIC SYSTEM</div>
+          </div>
+        </header>
+      ) : (
+        <Header variant="public" />
+      )}
 
       <main className="mx-auto max-w-5xl px-4 py-10">
         {/* Top back */}
@@ -230,41 +243,49 @@ export default function AssessmentPage() {
         {stage === "industry" && (
           <div className="space-y-8">
             <div className="text-center">
-              <div className="text-xs tracking-widest text-emerald-700">BRANCHENAUSWAHL</div>
-              <h1 className="mt-2 text-3xl font-semibold">
+              <div className="text-xs font-medium uppercase tracking-widest text-[#0f2b3c]">
+                Branchenauswahl
+              </div>
+              <h1 className="mt-4 text-3xl font-semibold text-[#0f2b3c]">
                 In welcher Branche ist Ihr Unternehmen tätig?
               </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
                 Diese Information ermöglicht uns, Ihre Ergebnisse mit Branchenbenchmarks zu vergleichen.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {INDUSTRIES.map((i) => {
-                const selected = industryId === i.id;
+            <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
+              {INDUSTRIES.map((ind) => {
+                const selected = industryId === ind.id;
                 return (
                   <button
-                    key={i.id}
+                    key={ind.id}
                     type="button"
-                    onClick={() => setIndustryId(i.id)}
+                    onClick={() => setIndustryId(ind.id)}
                     className={[
-                      "rounded-xl border bg-white px-6 py-5 text-left shadow-sm transition",
-                      "hover:bg-muted/30",
-                      selected ? "border-primary ring-2 ring-primary/20" : "border-muted",
+                      "rounded-xl border bg-white px-6 py-5 text-left shadow-sm transition-all",
+                      "hover:shadow-md",
+                      selected
+                        ? "border-[#0f2b3c] ring-2 ring-[#0f2b3c]/20"
+                        : "border-gray-200",
                     ].join(" ")}
                   >
-                    <div className="text-base font-semibold">{i.title}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{i.subtitle}</div>
+                    <div className="text-base font-semibold text-[#0f2b3c]">{ind.title}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">{ind.subtitle}</div>
                   </button>
                 );
               })}
             </div>
 
-            <div className="flex items-center justify-center gap-4 pt-2">
-              <Button variant="outline" onClick={goBack}>
+            <div className="flex items-center justify-center gap-4 pt-4">
+              <Button variant="ghost" onClick={goBack} className="text-muted-foreground">
                 Zurück
               </Button>
-              <Button onClick={goNext} disabled={!industryId} className="min-w-56">
+              <Button
+                onClick={goNext}
+                disabled={!industryId}
+                className="min-w-48 bg-[#0f2b3c] hover:bg-[#1a3d52]"
+              >
                 Weiter zur Diagnose
               </Button>
             </div>
