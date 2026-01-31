@@ -166,6 +166,11 @@ Requires authentication with role: `admin`
 3. If no session, redirect to `/login`
 4. After login, redirect back to intended destination
 
+**Supabase auth flow type**: This project expects **PKCE** (code exchange) with redirects landing on
+`/auth/callback` (e.g., `http://localhost:3000/auth/callback`). If you add magic-link login, use
+`supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${NEXT_PUBLIC_APP_URL}/auth/callback` } })`
+and ensure Supabase Auth settings have “Email link flow” set to **PKCE** so links include `?code=...`.
+
 ### Role-Based Access
 - **customer**: Access to `/app/*` routes
 - **admin**: Access to `/app/*` and `/admin/*` routes
