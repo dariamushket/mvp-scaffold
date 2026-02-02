@@ -1,12 +1,118 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button, Card, CardContent } from "@/components/ui";
 import { ArrowLeft, Calendar, Loader2, AlertTriangle } from "lucide-react";
+import { getClient } from "@/lib/supabase/client";
 
 const BOOKING_URL = "https://calendly.com/psei/executive-diagnose";
+
+const CONTACT_STORAGE_KEY = "lead_contact_v1";
+const ASSESSMENT_STORAGE_KEY = "assessment_answers_v1";
+
+type LeadContact = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string;
+  position: string;
+  consentMarketing: boolean;
+};
+
+type AssessmentStoredState = {
+  version: "v1";
+  industryId?: string;
+  answers: Record<string, number>;
+};
+
+type ScoringResult = {
+  score: number;
+  businessType: string;
+  bottleneck: string;
+  dimensionAverages: Record<string, number>;
+};
+
+function round1(n: number) {
+  return Math.round(n * 10) / 10;
+}
+
+function clamp0to5(n: number) {
+  return Math.max(0, Math.min(5, n));
+}
+
+function computeScoring(state: AssessmentStoredState): ScoringResult {
+  const answers = state.answers ?? {};
+
+  const buckets: Record<string, number[]> = {};
+  for (const [qid, val] of Object.entries(answers)) {
+    if (typeof val !== "number") continue;
+    const prefix = qid.split("_")[0];
+    buckets[prefix] = buckets[prefix] ?? [];
+    buckets[prefix].push(clamp0to5(val));
+  }
+
+  const dimensionAverages: Record<string, number> = {};
+  for (const [dim, vals] of Object.entries(buckets)) {
+    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    dimensionAverages[dim] = round1(avg);
+  }
+
+  const allVals = Object.values(answers).filter((v) => typeof v === "number") as number[];
+  const overallAvg = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
+  const score = Math.round(clamp0to5(overallAvg));
+
+  const bottleneckLabelMap: Record<string, string> = {
+    strategie: "Strategische Klarheit",
+    umsetzung: "Umsetzungsfähigkeit",
+    people: "People & Rollen",
+    fuehrung: "Führung & Entscheidungen",
+    governance: "Governance & Anpassung",
+  };
+
+  const dimEntries = Object.entries(dimensionAverages);
+  const weakest = dimEntries.length
+    ? dimEntries.reduce((min, cur) => (cur[1] < min[1] ? cur : min))
+    : (["strategie", 0] as const);
+
+  const bottleneck = bottleneckLabelMap[weakest[0]] ?? "Strategische Klarheit";
+
+  let businessType = "Strukturiert / skalierbar";
+  if (score <= 1) businessType = "Reaktiv / Firefighting";
+  else if (score <= 3) businessType = "Wachstum mit Reibung";
+
+  return { score, businessType, bottleneck, dimensionAverages };
+}
+
+function getStoredContact(): LeadContact | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(CONTACT_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as LeadContact;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredAssessment(): AssessmentStoredState | null {
+  if (typeof window === "undefined") return null;
+  const raw = sessionStorage.getItem(ASSESSMENT_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AssessmentStoredState;
+    if (!parsed?.version || !parsed?.answers) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function isLikelyUniqueViolation(message?: string) {
+  const m = (message ?? "").toLowerCase();
+  return m.includes("duplicate") || m.includes("unique") || m.includes("already exists");
+}
 
 function getScoreLabel(score: number): string {
   if (score <= 1) return "Kritisch – Dringender Handlungsbedarf";
@@ -25,14 +131,126 @@ function getScoreColor(score: number): string {
 }
 
 function ResultsContent() {
-  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<{
+    score: number;
+    type: string;
+    bottleneck: string;
+    leadId: string;
+  } | null>(null);
 
-  const score = Number(searchParams.get("score") ?? 3);
-  const type = searchParams.get("type") ?? "Wachstum mit Reibung";
-  const bottleneck = searchParams.get("bottleneck") ?? "Strategische Klarheit";
-  const leadId = searchParams.get("leadId");
+  useEffect(() => {
+    async function processResults() {
+      const contact = getStoredContact();
+      const assessment = getStoredAssessment();
 
-  // Convert 0-5 score to percentage for display
+      // Guard: redirect if no data
+      if (!contact || !assessment) {
+        router.push("/lead-gate");
+        return;
+      }
+
+      try {
+        const scoring = computeScoring(assessment);
+        const supabase = getClient();
+
+        const leadId = crypto.randomUUID();
+        const name = `${contact.firstName} ${contact.lastName}`.trim();
+
+        const { error: leadErr } = await supabase.from("leads").insert({
+          id: leadId,
+          name,
+          email: contact.email,
+          company: contact.company || null,
+          phone: contact.position || null, // Using phone field for position temporarily
+          consent_marketing: contact.consentMarketing,
+          score: scoring.score,
+          business_type: scoring.businessType,
+          bottleneck: scoring.bottleneck,
+          tags: assessment.industryId ? [assessment.industryId] : [],
+        });
+
+        if (leadErr) {
+          if (isLikelyUniqueViolation(leadErr.message)) {
+            throw new Error("Diese E-Mail wurde bereits verwendet.");
+          }
+          throw leadErr;
+        }
+
+        const payload = {
+          version: assessment.version,
+          industryId: assessment.industryId ?? null,
+          answers: assessment.answers,
+          meta: { dimensionAverages: scoring.dimensionAverages },
+        };
+
+        const { error: assessErr } = await supabase.from("assessments").insert({
+          lead_id: leadId,
+          answers: payload,
+          score: scoring.score,
+          completed_at: new Date().toISOString(),
+        });
+
+        if (assessErr) throw assessErr;
+
+        // Clear storage after successful save
+        localStorage.removeItem(CONTACT_STORAGE_KEY);
+        sessionStorage.removeItem(ASSESSMENT_STORAGE_KEY);
+
+        setResults({
+          score: scoring.score,
+          type: scoring.businessType,
+          bottleneck: scoring.bottleneck,
+          leadId,
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Es ist ein Fehler aufgetreten.";
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    processResults();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f0f7f7]">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#2d8a8a]" />
+          <p className="mt-4 text-muted-foreground">Ihre Ergebnisse werden berechnet...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f0f7f7] px-4">
+        <Card className="w-full max-w-md rounded-2xl border-0 shadow-lg">
+          <CardContent className="p-8 text-center">
+            <div className="text-xl font-bold text-[#2d8a8a]">PSEI</div>
+            <h1 className="mt-4 text-2xl font-semibold text-[#0f2b3c]">Fehler</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+            <Link href="/lead-gate">
+              <Button className="mt-6 bg-[#2d8a8a] hover:bg-[#257373]">
+                Erneut versuchen
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!results) {
+    return null;
+  }
+
+  const { score, type, bottleneck, leadId } = results;
   const scorePercent = Math.round((score / 5) * 100);
   const scoreLabel = getScoreLabel(score);
   const scoreColor = getScoreColor(score);
@@ -44,11 +262,11 @@ function ResultsContent() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-4">
             <Link
-              href="/assessment"
+              href="/"
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-[#2d8a8a]"
             >
               <ArrowLeft className="h-4 w-4" />
-              Zurück zur Übersicht
+              Zurück zur Startseite
             </Link>
           </div>
           <div className="text-xl font-bold text-[#2d8a8a]">PSEI</div>

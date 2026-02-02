@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 
 // ===== Storage =====
 const STORAGE_KEY = "assessment_answers_v1";
+const CONTACT_STORAGE_KEY = "lead_contact_v1";
 
 // ===== Industries (from screenshot) =====
 type Industry = {
@@ -139,6 +140,15 @@ export default function AssessmentPage() {
 
   const currentDimension = DIMENSIONS[dimensionIndex];
 
+  // Guard: Check for contact info and redirect if missing
+  useEffect(() => {
+    const contact = localStorage.getItem(CONTACT_STORAGE_KEY);
+    if (!contact) {
+      router.push("/lead-gate");
+      return;
+    }
+  }, [router]);
+
   // Load stored state
   useEffect(() => {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -206,8 +216,8 @@ export default function AssessmentPage() {
     if (dimensionIndex < DIMENSIONS.length - 1) {
       setDimensionIndex((i) => i + 1);
     } else {
-      // last dimension completed -> go to lead-gate (results shown after lead gate in your flow)
-      router.push("/lead-gate");
+      // last dimension completed -> go to results page
+      router.push("/results");
     }
   };
 

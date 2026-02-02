@@ -24,7 +24,7 @@ export default async function LandingPage() {
             path to sustainable growth.
           </p>
           <div className="flex justify-center gap-4">
-            <Link href="/assessment">
+            <Link href="/lead-gate">
               <Button size="lg">
                 Start Assessment
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -45,8 +45,18 @@ export default async function LandingPage() {
             <div className="grid gap-8 md:grid-cols-3">
               <Card>
                 <CardHeader>
+                  <Users className="mb-2 h-10 w-10 text-primary" />
+                  <CardTitle>1. Register Your Interest</CardTitle>
+                  <CardDescription>
+                    Provide your contact details to get started with the assessment.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <BarChart3 className="mb-2 h-10 w-10 text-primary" />
-                  <CardTitle>1. Take the Assessment</CardTitle>
+                  <CardTitle>2. Take the Assessment</CardTitle>
                   <CardDescription>
                     Answer questions about your business across key growth dimensions.
                   </CardDescription>
@@ -56,19 +66,9 @@ export default async function LandingPage() {
               <Card>
                 <CardHeader>
                   <CheckCircle2 className="mb-2 h-10 w-10 text-primary" />
-                  <CardTitle>2. Get Your Results</CardTitle>
+                  <CardTitle>3. Get Your Results</CardTitle>
                   <CardDescription>
-                    Receive a personalized score and identify your primary bottleneck.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <Users className="mb-2 h-10 w-10 text-primary" />
-                  <CardTitle>3. Get Expert Guidance</CardTitle>
-                  <CardDescription>
-                    Book a strategy session to create your growth roadmap.
+                    Receive a personalized score and expert guidance.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -83,7 +83,7 @@ export default async function LandingPage() {
             <p className="mb-8 text-muted-foreground">
               Join hundreds of business owners who have transformed their businesses.
             </p>
-            <Link href="/assessment">
+            <Link href="/lead-gate">
               <Button size="lg">
                 Start Free Assessment
                 <ArrowRight className="ml-2 h-4 w-4" />
