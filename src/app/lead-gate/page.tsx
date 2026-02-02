@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/layouts";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from "@/components/ui";
-import { ArrowLeft, ArrowRight, Lock } from "lucide-react";
+import { Button, Card, CardContent, Input, Label } from "@/components/ui";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { getClient } from "@/lib/supabase/client";
 
 const STORAGE_KEY = "assessment_answers_v1";
@@ -17,7 +16,7 @@ type AssessmentStoredState = {
 };
 
 type ScoringResult = {
-  score: number; // 0..5 integer
+  score: number;
   businessType: string;
   bottleneck: string;
   dimensionAverages: Record<string, number>;
@@ -34,7 +33,6 @@ function clamp0to5(n: number) {
 function computeScoring(state: AssessmentStoredState): ScoringResult {
   const answers = state.answers ?? {};
 
-  // Group by prefix before "_" (strategie_1, umsetzung_2, ...)
   const buckets: Record<string, number[]> = {};
   for (const [qid, val] of Object.entries(answers)) {
     if (typeof val !== "number") continue;
@@ -121,14 +119,15 @@ export default function LeadGatePage() {
     }
 
     const formData = new FormData(e.currentTarget);
-    const name = String(formData.get("name") ?? "").trim();
+    const firstName = String(formData.get("firstName") ?? "").trim();
+    const lastName = String(formData.get("lastName") ?? "").trim();
+    const name = `${firstName} ${lastName}`.trim();
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const company = String(formData.get("company") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
-    const consentTerms = formData.get("consent_terms");
+    const position = String(formData.get("position") ?? "").trim();
 
-    if (!name || !email || !consentTerms) {
-      setError("Bitte füllen Sie alle Pflichtfelder aus und akzeptieren Sie die Bedingungen.");
+    if (!firstName || !lastName || !email) {
+      setError("Bitte füllen Sie alle Pflichtfelder aus.");
       return;
     }
 
@@ -138,7 +137,6 @@ export default function LeadGatePage() {
       const supabase = getClient();
       const scoring = computeScoring(stored);
 
-      // Generate UUID client-side to avoid needing SELECT policy for anon
       const leadId = crypto.randomUUID();
 
       const { error: leadErr } = await supabase.from("leads").insert({
@@ -146,7 +144,7 @@ export default function LeadGatePage() {
         name,
         email,
         company: company || null,
-        phone: phone || null,
+        phone: position || null, // Using phone field for position temporarily
         consent_marketing: consentMarketing,
         score: scoring.score,
         business_type: scoring.businessType,
@@ -185,8 +183,9 @@ export default function LeadGatePage() {
       });
 
       router.push(`/results?${params.toString()}`);
-    } catch (err: any) {
-      setError(err?.message ?? "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.";
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -194,142 +193,162 @@ export default function LeadGatePage() {
 
   if (!hasAssessment) {
     return (
-      <div className="min-h-screen">
-        <Header variant="public" />
-        <main className="container mx-auto max-w-lg px-4 py-12">
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Diagnose nicht gefunden</CardTitle>
-              <p className="text-muted-foreground">
-                Ihre Antworten sind nicht mehr verfügbar. Bitte starten Sie die Diagnose erneut.
-              </p>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              <Link href="/assessment">
-                <Button>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Zurück zur Diagnose
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </main>
+      <div className="flex min-h-screen items-center justify-center bg-[#f0f7f7] px-4">
+        <Card className="w-full max-w-md rounded-2xl border-0 shadow-lg">
+          <CardContent className="p-8 text-center">
+            <div className="text-xl font-bold text-[#2d8a8a]">PSEI</div>
+            <h1 className="mt-4 text-2xl font-semibold text-[#0f2b3c]">Diagnose nicht gefunden</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Ihre Antworten sind nicht mehr verfügbar. Bitte starten Sie die Diagnose erneut.
+            </p>
+            <Link href="/assessment">
+              <Button className="mt-6 bg-[#2d8a8a] hover:bg-[#257373]">
+                Zurück zur Diagnose
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <Header variant="public" />
-
-      <main className="container mx-auto max-w-lg px-4 py-12">
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Lock className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">Fast geschafft</CardTitle>
-            <p className="text-muted-foreground">
-              Geben Sie Ihre Kontaktdaten ein, um Ihr Ergebnis freizuschalten.
+    <div className="flex min-h-screen items-center justify-center bg-[#f0f7f7] px-4 py-8">
+      <Card className="w-full max-w-md rounded-2xl border-0 shadow-lg">
+        <CardContent className="p-8">
+          {/* Header */}
+          <div className="mb-6 text-center">
+            <div className="text-xl font-bold text-[#2d8a8a]">PSEI</div>
+            <h1 className="mt-2 text-2xl font-semibold text-[#0f2b3c]">
+              Ihr Executive Scorecard ist bereit
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Geben Sie Ihre Kontaktdaten ein, um Ihre personalisierten Ergebnisse zu erhalten.
             </p>
+          </div>
 
-            {scoringPreview && (
-              <div className="mt-4 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-                <div className="flex items-center justify-between">
-                  <span>Aktueller Score (Vorschau)</span>
-                  <span className="font-medium text-foreground">{scoringPreview.score} / 5</span>
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
               </div>
             )}
-          </CardHeader>
 
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  {error}
-                </div>
+            {/* Name fields side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName" className="text-sm text-muted-foreground">
+                  Vorname *
+                </Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  placeholder="Max"
+                  required
+                  disabled={isSubmitting}
+                  className="h-11 rounded-lg border-gray-200"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName" className="text-sm text-muted-foreground">
+                  Nachname *
+                </Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  placeholder="Mustermann"
+                  required
+                  disabled={isSubmitting}
+                  className="h-11 rounded-lg border-gray-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm text-muted-foreground">
+                E-Mail *
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="max@unternehmen.de"
+                required
+                disabled={isSubmitting}
+                className="h-11 rounded-lg border-gray-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="company" className="text-sm text-muted-foreground">
+                Unternehmen
+              </Label>
+              <Input
+                id="company"
+                name="company"
+                placeholder="Mustermann GmbH"
+                disabled={isSubmitting}
+                className="h-11 rounded-lg border-gray-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="position" className="text-sm text-muted-foreground">
+                Position
+              </Label>
+              <Input
+                id="position"
+                name="position"
+                placeholder="CEO / Geschäftsführer"
+                disabled={isSubmitting}
+                className="h-11 rounded-lg border-gray-200"
+              />
+            </div>
+
+            {/* Consent */}
+            <div className="flex items-start gap-3 pt-2">
+              <input
+                type="checkbox"
+                id="consent"
+                checked={consentMarketing}
+                onChange={(e) => setConsentMarketing(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="consent" className="cursor-pointer text-sm text-muted-foreground">
+                Ich stimme der{" "}
+                <Link href="#" className="text-[#2d8a8a] hover:underline">
+                  Datenschutzerklärung
+                </Link>{" "}
+                zu und möchte Informationen zu strategischen Führungsthemen erhalten.
+              </label>
+            </div>
+
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-lg bg-[#2d8a8a] text-white hover:bg-[#257373]"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Wird verarbeitet...
+                </>
+              ) : (
+                "Ergebnisse anzeigen"
               )}
+            </Button>
+          </form>
 
-              <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
-                <Input id="name" name="name" placeholder="Max Mustermann" required />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">E-Mail (geschäftlich) *</Label>
-                <Input id="email" name="email" type="email" placeholder="max@unternehmen.de" required />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="company">Unternehmen</Label>
-                <Input id="company" name="company" placeholder="Muster GmbH" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefon</Label>
-                <Input id="phone" name="phone" type="tel" placeholder="+49 123 456789" />
-              </div>
-
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    name="consent_marketing"
-                    checked={consentMarketing}
-                    onChange={(e) => setConsentMarketing(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    Ich möchte Updates und praxisnahe Hinweise erhalten. Abmeldung jederzeit möglich.
-                  </span>
-                </label>
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input type="checkbox" name="consent_terms" required className="mt-1 h-4 w-4 rounded border-gray-300" />
-                  <span className="text-sm text-muted-foreground">
-                    Ich stimme den{" "}
-                    <Link href="#" className="text-primary underline">
-                      Nutzungsbedingungen
-                    </Link>{" "}
-                    und der{" "}
-                    <Link href="#" className="text-primary underline">
-                      Datenschutzerklärung
-                    </Link>{" "}
-                    zu. *
-                  </span>
-                </label>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <Link href="/assessment" className="flex-1">
-                  <Button variant="outline" className="w-full" type="button" disabled={isSubmitting}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Zurück
-                  </Button>
-                </Link>
-
-                <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    "Wird verarbeitet…"
-                  ) : (
-                    <>
-                      Ergebnis anzeigen
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Ihre Informationen sind sicher und werden nicht an Dritte weitergegeben.
-        </p>
-      </main>
+          {/* Login link */}
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Bereits registriert?{" "}
+            <Link href="/login" className="text-[#2d8a8a] hover:underline">
+              Anmelden
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
