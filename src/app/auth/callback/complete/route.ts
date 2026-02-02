@@ -8,14 +8,18 @@ function getRedirectUrl(role: UserRole): string {
   return role === "admin" ? "/admin" : "/portal";
 }
 
+/**
+ * Server-side auth callback completion handler.
+ *
+ * This route handles two scenarios:
+ * 1. Called after client-side session setup (magic link flow) - session already exists
+ * 2. Called with a code query param (PKCE flow) - needs to exchange code for session
+ *
+ * After authentication, it handles profile creation and role-based redirects.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-
-  if (!code) {
-    // No code provided - redirect to login with error
-    return NextResponse.redirect(`${origin}/login?error=missing_code`);
-  }
 
   const cookieStore = await cookies();
 
@@ -40,15 +44,17 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  // Exchange the code for a session
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  // If we have a code, exchange it for a session (PKCE flow)
+  if (code) {
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (exchangeError) {
-    console.error("Error exchanging code for session:", exchangeError.message);
-    return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+    if (exchangeError) {
+      console.error("Error exchanging code for session:", exchangeError.message);
+      return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+    }
   }
 
-  // Get the authenticated user
+  // Get the authenticated user (session should exist from either magic link or PKCE)
   const {
     data: { user },
     error: userError,
