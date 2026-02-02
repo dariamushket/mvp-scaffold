@@ -62,9 +62,16 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect authenticated users away from login page
   if (user && isLoginRoute) {
-    const redirect = request.nextUrl.searchParams.get("redirect") || "/portal";
+    // Fetch user's role to determine redirect
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const roleRedirect = profile?.role === "admin" ? "/admin" : "/portal";
     const url = request.nextUrl.clone();
-    url.pathname = redirect;
+    url.pathname = roleRedirect;
     url.searchParams.delete("redirect");
     return NextResponse.redirect(url);
   }

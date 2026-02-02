@@ -2,10 +2,15 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
+type UserRole = "admin" | "customer";
+
+function getRedirectUrl(role: UserRole): string {
+  return role === "admin" ? "/admin" : "/portal";
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/portal";
 
   if (!code) {
     // No code provided - redirect to login with error
@@ -57,12 +62,12 @@ export async function GET(request: NextRequest) {
   // Check if profile exists, create if not
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, has_password")
+    .select("id, has_password, role")
     .eq("id", user.id)
     .single();
 
   if (profileError && profileError.code === "PGRST116") {
-    // Profile doesn't exist - create it
+    // Profile doesn't exist - create it (default to customer role)
     const { error: insertError } = await supabase.from("profiles").insert({
       id: user.id,
       role: "customer",
@@ -74,8 +79,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}/login?error=profile_creation_failed`);
     }
 
-    // New user - redirect to set password
-    return NextResponse.redirect(`${origin}/set-password`);
+    // New user - redirect to set password with customer redirect
+    const redirectUrl = getRedirectUrl("customer");
+    return NextResponse.redirect(`${origin}/set-password?redirect=${encodeURIComponent(redirectUrl)}`);
   }
 
   if (profileError && (profileError.code === "42P01" || profileError.code === "42703")) {
@@ -88,11 +94,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=profile_error`);
   }
 
+  // Get role-appropriate redirect URL
+  const role = (profile.role as UserRole) || "customer";
+  const redirectUrl = getRedirectUrl(role);
+
   // Profile exists - check if password is set
   if (!profile.has_password) {
-    return NextResponse.redirect(`${origin}/set-password`);
+    return NextResponse.redirect(`${origin}/set-password?redirect=${encodeURIComponent(redirectUrl)}`);
   }
 
-  // User has password set - redirect to portal
-  return NextResponse.redirect(`${origin}${next}`);
+  // User has password set - redirect to role-appropriate dashboard
+  return NextResponse.redirect(`${origin}${redirectUrl}`);
 }

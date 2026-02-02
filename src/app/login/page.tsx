@@ -53,7 +53,7 @@ function LoginForm() {
 
     const supabase = getClient();
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -64,7 +64,16 @@ function LoginForm() {
       return;
     }
 
-    router.push(redirect);
+    // Fetch user's role to determine redirect
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    // Redirect based on role: admin → /admin, customer → /portal
+    const roleRedirect = profile?.role === "admin" ? "/admin" : "/portal";
+    router.push(roleRedirect);
     router.refresh();
   };
 

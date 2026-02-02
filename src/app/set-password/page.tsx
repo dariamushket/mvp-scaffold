@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, CardContent, Input, Label } from "@/components/ui";
 import { getClient } from "@/lib/supabase/client";
 import { AlertCircle, Check, Circle, CheckCircle, Loader2 } from "lucide-react";
@@ -37,8 +37,11 @@ const PASSWORD_REQUIREMENTS: PasswordRequirement[] = [
   },
 ];
 
-export default function SetPasswordPage() {
+function SetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/portal";
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -109,9 +112,9 @@ export default function SetPasswordPage() {
 
     setSuccess(true);
 
-    // Redirect to portal after a short delay
+    // Redirect to role-appropriate dashboard after a short delay
     setTimeout(() => {
-      router.push("/portal");
+      router.push(redirectTo);
       router.refresh();
     }, 1500);
   };
@@ -233,5 +236,19 @@ export default function SetPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function SetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#f0f7f7]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#2d8a8a]" />
+        </div>
+      }
+    >
+      <SetPasswordForm />
+    </Suspense>
   );
 }
