@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shared";
 import { Button, Card, CardContent, Badge, Input } from "@/components/ui";
 import { Search, FileText, Video, Link as LinkIcon, ExternalLink, Download } from "lucide-react";
+import type { MaterialKind } from "@/types";
 
 // TODO: Fetch actual materials from database
 const MOCK_MATERIALS = [
@@ -8,7 +9,7 @@ const MOCK_MATERIALS = [
     id: "1",
     title: "Growth Strategy Playbook",
     description: "A comprehensive guide to scaling your business systematically",
-    type: "document" as const,
+    kind: "document" as const,
     url: "#",
     thumbnailUrl: null,
     createdAt: "2024-01-01",
@@ -17,7 +18,7 @@ const MOCK_MATERIALS = [
     id: "2",
     title: "Leadership Fundamentals",
     description: "Video series on building and leading high-performing teams",
-    type: "video" as const,
+    kind: "video" as const,
     url: "#",
     thumbnailUrl: null,
     createdAt: "2024-01-05",
@@ -26,7 +27,7 @@ const MOCK_MATERIALS = [
     id: "3",
     title: "Financial Planning Template",
     description: "Excel template for annual budgeting and forecasting",
-    type: "document" as const,
+    kind: "document" as const,
     url: "#",
     thumbnailUrl: null,
     createdAt: "2024-01-08",
@@ -35,7 +36,7 @@ const MOCK_MATERIALS = [
     id: "4",
     title: "Marketing Automation Guide",
     description: "Learn to set up automated marketing funnels",
-    type: "link" as const,
+    kind: "link" as const,
     url: "#",
     thumbnailUrl: null,
     createdAt: "2024-01-10",
@@ -44,7 +45,7 @@ const MOCK_MATERIALS = [
     id: "5",
     title: "Operations Checklist",
     description: "Daily and weekly operations checklist for managers",
-    type: "document" as const,
+    kind: "document" as const,
     url: "#",
     thumbnailUrl: null,
     createdAt: "2024-01-12",
@@ -53,14 +54,14 @@ const MOCK_MATERIALS = [
     id: "6",
     title: "Sales Training Workshop",
     description: "Recording of our sales techniques workshop",
-    type: "video" as const,
+    kind: "video" as const,
     url: "#",
     thumbnailUrl: null,
     createdAt: "2024-01-14",
   },
 ];
 
-const typeConfig = {
+const typeConfig: Record<MaterialKind, { label: string; icon: typeof FileText; color: string }> = {
   document: { label: "Document", icon: FileText, color: "text-blue-500" },
   video: { label: "Video", icon: Video, color: "text-red-500" },
   link: { label: "Link", icon: LinkIcon, color: "text-green-500" },
@@ -99,7 +100,7 @@ export default function MaterialsPage() {
       {/* Materials Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {MOCK_MATERIALS.map((material) => {
-          const config = typeConfig[material.type];
+          const config = typeConfig[material.kind];
           const TypeIcon = config.icon;
 
           return (
@@ -122,7 +123,7 @@ export default function MaterialsPage() {
                     Added {new Date(material.createdAt).toLocaleDateString()}
                   </span>
                   <Button variant="ghost" size="sm">
-                    {material.type === "link" ? (
+                    {material.kind === "link" ? (
                       <>
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Open
