@@ -2,6 +2,8 @@ import Link from "next/link";
 import { PageHeader } from "@/components/shared";
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Input, Label } from "@/components/ui";
 import { ArrowLeft, Download, Mail, Phone, Building2, Tag, Save, Trash2 } from "lucide-react";
+import { AdminMaterialsPanel } from "@/components/materials/AdminMaterialsPanel";
+import { listMaterialsByCompany } from "@/lib/materials";
 
 interface LeadDetailPageProps {
   params: Promise<{ id: string }>;
@@ -24,6 +26,8 @@ async function getLead(id: string) {
     consentMarketing: true,
     createdAt: "2024-01-15T10:30:00",
     updatedAt: "2024-01-16T14:20:00",
+    // TODO: Replace with real company_id from customer profile linked to this lead
+    companyId: "00000000-0000-0000-0000-000000000001",
     assessmentAnswers: {
       revenue: "$500K - $1M",
       teamSize: "11-25",
@@ -36,6 +40,7 @@ async function getLead(id: string) {
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { id } = await params;
   const lead = await getLead(id);
+  const materials = await listMaterialsByCompany(lead.companyId);
 
   return (
     <div>
@@ -158,6 +163,9 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Materials */}
+          <AdminMaterialsPanel companyId={lead.companyId} initialMaterials={materials} />
         </div>
 
         {/* Sidebar */}

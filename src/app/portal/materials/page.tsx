@@ -1,151 +1,99 @@
-"use client";
+import { Suspense } from "react";
+import { requireAuth } from "@/lib/auth/requireRole";
+import { getProfile } from "@/lib/auth/getProfile";
+import { listMaterialsByCompany } from "@/lib/materials";
+import { Card, CardContent } from "@/components/ui";
+import { FileText, Video, BookOpen } from "lucide-react";
+import { Material } from "@/types";
+import { MaterialsSearch } from "@/components/materials/MaterialsSearch";
+import { DownloadButton } from "@/components/materials/DownloadButton";
 
-import { useState } from "react";
-import { Button, Card, CardContent, Input } from "@/components/ui";
-import { Search, FileText, Presentation, BookOpen, Video } from "lucide-react";
-
-type Material = {
-  id: string;
-  title: string;
-  description: string;
-  icon: "document" | "presentation" | "guide" | "video";
-  iconBgColor: string;
-  iconColor: string;
-  actionLabel: string;
-  actionUrl?: string;
-};
-
-// Mock data matching the design
-const MATERIALS: Material[] = [
-  {
-    id: "1",
-    title: "Executive Scorecard",
-    description: "Ihre vollständige PSEI-Auswertung",
-    icon: "document",
-    iconBgColor: "bg-cyan-100",
-    iconColor: "text-cyan-600",
-    actionLabel: "Herunterladen",
-  },
-  {
-    id: "2",
-    title: "Strategiepräsentation",
-    description: "Für Ihr Führungsteam",
-    icon: "presentation",
-    iconBgColor: "bg-amber-100",
-    iconColor: "text-amber-600",
-    actionLabel: "Herunterladen",
-  },
-  {
-    id: "3",
-    title: "Führungsleitfaden",
-    description: "Best Practices für CEOs",
-    icon: "guide",
-    iconBgColor: "bg-emerald-100",
-    iconColor: "text-emerald-600",
-    actionLabel: "Herunterladen",
-  },
-  {
-    id: "4",
-    title: "Session-Aufzeichnung",
-    description: "Kick-off vom 28. Januar",
-    icon: "video",
-    iconBgColor: "bg-purple-100",
-    iconColor: "text-purple-600",
-    actionLabel: "Ansehen",
-  },
-];
-
-function getIcon(type: Material["icon"]) {
-  switch (type) {
-    case "document":
-      return FileText;
-    case "presentation":
-      return Presentation;
-    case "guide":
-      return BookOpen;
-    case "video":
-      return Video;
-    default:
-      return FileText;
-  }
+function getMimeIcon(mimeType: string) {
+  if (mimeType.includes("video")) return Video;
+  if (mimeType.includes("word")) return BookOpen;
+  return FileText;
 }
 
-export default function PortalMaterialsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-  const filteredMaterials = MATERIALS.filter(
-    (material) =>
-      material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      material.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+interface PageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function PortalMaterialsPage({ searchParams }: PageProps) {
+  await requireAuth();
+  const profile = await getProfile();
+
+  let materials: Material[] = [];
+  if (profile?.company_id) {
+    materials = await listMaterialsByCompany(profile.company_id);
+  }
+
+  const { q } = await searchParams;
+  const query = q?.toLowerCase() ?? "";
+
+  const filtered = query
+    ? materials.filter(
+        (m) =>
+          m.title.toLowerCase().includes(query) ||
+          (m.description?.toLowerCase().includes(query) ?? false)
+      )
+    : materials;
 
   return (
     <div>
-      {/* Header */}
+      {/* Header with search */}
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[#0f2b3c]">Materialien</h1>
-          <p className="mt-1 text-muted-foreground">
-            Ihre Ressourcen und Dokumente
-          </p>
+          <h1 className="text-3xl font-bold text-[#0f2b3c]">Materials</h1>
+          <p className="mt-1 text-muted-foreground">Your resources and documents</p>
         </div>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Materialien suchen..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 rounded-lg border-gray-200 pl-10"
-          />
-        </div>
+        <Suspense fallback={null}>
+          <MaterialsSearch />
+        </Suspense>
       </div>
 
-      {/* Materials Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {filteredMaterials.map((material) => {
-          const Icon = getIcon(material.icon);
-          return (
-            <Card
-              key={material.id}
-              className="rounded-xl border bg-white shadow-sm"
-            >
-              <CardContent className="flex flex-col items-center p-6 text-center">
-                {/* Icon */}
-                <div
-                  className={`flex h-16 w-16 items-center justify-center rounded-xl ${material.iconBgColor}`}
-                >
-                  <Icon className={`h-8 w-8 ${material.iconColor}`} />
-                </div>
-
-                {/* Title */}
-                <h3 className="mt-4 font-semibold text-[#0f2b3c]">
-                  {material.title}
-                </h3>
-
-                {/* Description */}
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {material.description}
-                </p>
-
-                {/* Action Button */}
-                <Button
-                  variant="outline"
-                  className="mt-4 w-full rounded-lg border-gray-300 text-[#0f2b3c]"
-                >
-                  {material.actionLabel}
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Empty State */}
-      {filteredMaterials.length === 0 && (
+      {/* Materials grid */}
+      {filtered.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {filtered.map((material) => {
+            const Icon = getMimeIcon(material.mime_type);
+            return (
+              <Card key={material.id} className="rounded-xl border bg-white shadow-sm">
+                <CardContent className="flex flex-col items-center p-6 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-cyan-100">
+                    <Icon className="h-8 w-8 text-cyan-600" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-[#0f2b3c]">{material.title}</h3>
+                  {material.description && (
+                    <p className="mt-1 text-sm text-muted-foreground">{material.description}</p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatFileSize(material.size_bytes)}
+                  </p>
+                  <DownloadButton materialId={material.id} />
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
         <div className="mt-8 text-center">
-          <p className="text-muted-foreground">
-            Keine Materialien gefunden für &quot;{searchQuery}&quot;
-          </p>
+          {query ? (
+            <p className="text-muted-foreground">No materials found for &quot;{q}&quot;</p>
+          ) : (
+            <div className="flex flex-col items-center">
+              <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
+              <p className="text-lg font-medium">No materials available</p>
+              <p className="mt-1 text-muted-foreground">
+                Materials will appear here when they are added to your account.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

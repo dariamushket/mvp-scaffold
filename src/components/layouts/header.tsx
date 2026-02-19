@@ -21,13 +21,16 @@ const publicNavItems: NavItem[] = [
 ];
 
 const portalNavItems: NavItem[] = [
-  { href: "/app", label: "Dashboard" },
-  { href: "/app/tasks", label: "Tasks" },
-  { href: "/app/sessions", label: "Sessions" },
-  { href: "/app/materials", label: "Materials" },
+  { href: "/portal", label: "Dashboard" },
+  { href: "/portal/tasks", label: "Tasks" },
+  { href: "/portal/sessions", label: "Sessions" },
+  { href: "/portal/materials", label: "Materials" },
 ];
 
-const adminNavItems: NavItem[] = [{ href: "/admin/leads", label: "Leads" }];
+const adminNavItems: NavItem[] = [
+  { href: "/admin/leads", label: "Leads" },
+  { href: "/admin/materials", label: "Materials" },
+];
 
 export function Header({ variant, isAuthenticated = false }: HeaderProps) {
   const pathname = usePathname();
@@ -38,7 +41,7 @@ export function Header({ variant, isAuthenticated = false }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-7xl items-center px-4">
-        <Link href={variant === "public" ? "/" : "/app"} className="mr-6 flex items-center space-x-2">
+        <Link href={variant === "public" ? "/" : variant === "admin" ? "/admin/leads" : "/portal"} className="mr-6 flex items-center space-x-2">
           <span className="font-bold">MVP App</span>
           {variant === "admin" && (
             <span className="rounded bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
@@ -73,7 +76,7 @@ export function Header({ variant, isAuthenticated = false }: HeaderProps) {
                 </Link>
               )}
               {variant === "admin" && (
-                <Link href="/app">
+                <Link href="/portal">
                   <Button variant="ghost" size="sm">
                     Portal
                   </Button>
@@ -92,7 +95,7 @@ export function Header({ variant, isAuthenticated = false }: HeaderProps) {
             </Link>
           )}
           {variant === "public" && isAuthenticated && (
-            <Link href="/app">
+            <Link href="/portal">
               <Button size="sm">Dashboard</Button>
             </Link>
           )}
