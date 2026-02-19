@@ -81,14 +81,31 @@ export interface CoachingSession {
 
 // Material type for resources
 // TODO: Create materials table in Supabase
+export type MaterialKind = "document" | "video" | "link";
+
+export interface MaterialAssignment {
+  material_id: string;
+  company_id: string;
+  created_at: string;
+}
+
 export interface Material {
   id: string;
+  company_id: string;
   title: string;
   description: string | null;
-  type: "video" | "document" | "link";
-  url: string;
-  thumbnail_url: string | null;
+  kind: MaterialKind;
+  file_name: string | null;
+  storage_path: string | null;
+  external_url: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  is_published: boolean;
+  assigned_company_ids: string[];
+  assignments?: MaterialAssignment[];
   created_at: string;
+  updated_at: string;
 }
 
 // API Response types
