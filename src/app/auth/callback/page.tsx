@@ -25,6 +25,30 @@ export default function AuthCallbackPage() {
           window.location.hash.substring(1) // Remove the leading #
         );
 
+        // Check for error in hash fragment first (e.g., expired link)
+        const hashError = hashParams.get("error");
+        const errorCode = hashParams.get("error_code");
+        const errorDescription = hashParams.get("error_description");
+
+        if (hashError) {
+          console.error("Auth error:", hashError, errorCode, errorDescription);
+          setStatus("error");
+
+          // Provide user-friendly error messages
+          if (errorCode === "otp_expired") {
+            setErrorMessage("This magic link has expired. Please request a new one.");
+          } else if (hashError === "access_denied") {
+            setErrorMessage("Access denied. The link may be invalid or expired.");
+          } else {
+            setErrorMessage(errorDescription?.replace(/\+/g, " ") || "Authentication failed.");
+          }
+
+          setTimeout(() => {
+            router.replace(`/login?error=${errorCode || hashError}`);
+          }, 3000);
+          return;
+        }
+
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
 
