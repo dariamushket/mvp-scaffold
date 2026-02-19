@@ -109,6 +109,26 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 ```
 
+### 3.1 Materials storage + RLS setup
+
+Run `supabase/migrations/20260219120000_materials_storage_and_rls.sql` in the Supabase SQL editor (or via Supabase CLI migrations). This migration does the following:
+
+- Creates private Storage bucket `materials`.
+- Enforces deterministic object keys shaped like `company/{company_id}/{material_id}/{filename}`.
+- Adds Storage policies so:
+  - admins can create/update/delete (and read) `materials` objects,
+  - customers can read only objects under `company/{their_company_id}/...`.
+- Creates `materials` and optional `material_assignments` tables with RLS enabled.
+- Adds table RLS policies so:
+  - admins can manage all rows,
+  - customers can only `SELECT` published company-bound records.
+
+Policy assumptions used by the migration:
+
+- `profiles.id = auth.uid()` (if your project uses `profiles.user_id`, adapt the policy joins accordingly).
+- `profiles.role` contains `admin` and `customer` values.
+- `profiles.company_id` is populated for customer users.
+
 ### 4. Run Development Server
 
 ```bash
