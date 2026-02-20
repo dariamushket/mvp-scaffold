@@ -23,26 +23,47 @@ export interface AuthSession {
   refresh_token: string;
 }
 
-// Lead type for admin management
-// TODO: Create leads table in Supabase
+// Dimension score object within leads.dimension_scores JSONB array
+export interface DimensionScore {
+  id?: string;
+  name: string;
+  score: number;
+  maxScore?: number;
+  percentage?: number;
+}
+
+// Lead type — Lovable-compatible schema (superset of Lovable's leads table)
 export interface Lead {
   id: string;
+  // Contact
+  first_name: string;
+  last_name: string;
   email: string;
-  name: string | null;
-  company: string | null;
   phone: string | null;
-  score: number | null;
-  business_type: string | null;
-  bottleneck: string | null;
-  tags: string[];
+  company: string;
+  position: string | null;
+  employee_count: string | null;
+  annual_revenue: string | null;
+  // Assessment results
+  total_score: number | null;
+  max_score: number | null;
+  typology_id: string | null;
+  typology_name: string | null;
+  bottleneck_dimension: string | null;
+  bottleneck_score: number | null;
+  dimension_scores: DimensionScore[] | null;
+  // Diagnostic tracking
+  diagnostic_status: string | null;
+  diagnostic_started_at: string | null;
+  diagnostic_completed_at: string | null;
+  last_dimension_index: number | null;
+  // Portal extensions
+  company_id: string;
   notes: string | null;
-  consent_marketing: boolean;
   created_at: string;
-  updated_at: string;
 }
 
 // Assessment types
-// TODO: Create assessments table in Supabase
 export interface Assessment {
   id: string;
   lead_id: string;
@@ -99,10 +120,3 @@ export interface ApiResponse<T> {
   data: T | null;
   error: string | null;
 }
-
-// Form validation schemas will be added here with Zod
-// Example structure for future implementation:
-// export const loginSchema = z.object({
-//   email: z.string().email(),
-//   password: z.string().min(8),
-// });

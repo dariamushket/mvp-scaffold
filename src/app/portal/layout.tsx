@@ -2,19 +2,21 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   CheckSquare,
   Calendar,
   FolderOpen,
+  BarChart2,
   LogOut,
   Loader2,
 } from "lucide-react";
 
 const navItems = [
   { href: "/portal", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/portal/scorecard", label: "Scorecard", icon: BarChart2 },
   { href: "/portal/tasks", label: "Aufgaben", icon: CheckSquare },
   { href: "/portal/sessions", label: "Sessions", icon: Calendar },
   { href: "/portal/materials", label: "Materialien", icon: FolderOpen },
@@ -28,6 +30,14 @@ export default function PortalLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  useEffect(() => {
+    const supabase = getClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setUserEmail(user.email);
+    });
+  }, []);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -72,7 +82,7 @@ export default function PortalLayout({
 
         {/* User section at bottom */}
         <div className="border-t p-4">
-          <div className="mb-3 text-sm text-gray-600">Max Mustermann</div>
+          <div className="mb-3 truncate text-sm text-gray-600">{userEmail || "…"}</div>
           <button
             onClick={handleSignOut}
             disabled={isSigningOut}
