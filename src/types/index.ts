@@ -86,18 +86,25 @@ export interface Task {
   updated_at: string;
 }
 
-// Session type for coaching sessions
-// TODO: Create sessions table in Supabase
-export interface CoachingSession {
+// Session type for coaching sessions (sessions table)
+export interface Session {
   id: string;
-  user_id: string;
+  lead_id: string;
+  created_by_admin_id: string | null;
   title: string;
-  scheduled_at: string;
-  duration_minutes: number;
-  status: "scheduled" | "completed" | "cancelled";
-  notes: string | null;
+  description: string | null;
+  calendly_url: string;
+  status: 'booking_open' | 'booked' | 'completed' | 'canceled';
+  booked_start_at: string | null;
+  booked_end_at: string | null;
+  location: string | null;
+  meeting_url: string | null;
   recording_url: string | null;
+  calendly_event_uri: string | null;
+  calendly_invitee_uri: string | null;
+  show_on_dashboard: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Material {

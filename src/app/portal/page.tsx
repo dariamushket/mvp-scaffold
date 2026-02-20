@@ -1,13 +1,11 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, CardContent } from "@/components/ui";
-import { Calendar, BarChart2 } from "lucide-react";
+import { Calendar, BarChart2, MapPin } from "lucide-react";
 import { requireAuth } from "@/lib/auth/requireRole";
 import { getProfile } from "@/lib/auth/getProfile";
 import { createClient } from "@/lib/supabase/server";
-import { DimensionScore } from "@/types";
-
-const BOOKING_URL = "https://calendly.com/tcinar/psei";
+import { DimensionScore, Session } from "@/types";
 
 function getStatusLabel(score: number, maxScore: number): string {
   const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -33,6 +31,17 @@ function getScoreColor(score: number): string {
   return "text-orange-500";
 }
 
+function formatSessionTime(start: string, end: string | null): string {
+  const startDate = new Date(start);
+  const day = startDate.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
+  const startTime = startDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  if (end) {
+    const endTime = new Date(end).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    return `${day} · ${startTime}–${endTime} Uhr`;
+  }
+  return `${day} · ${startTime} Uhr`;
+}
+
 export default async function PortalDashboardPage() {
   await requireAuth();
   const profile = await getProfile();
@@ -46,14 +55,42 @@ export default async function PortalDashboardPage() {
     dimension_scores: DimensionScore[] | null;
   } | null = null;
 
+  let nextSession: Session | null = null;
+  let hasBookingOpen = false;
+
   if (profile.company_id) {
     const supabase = await createClient();
-    const { data } = await supabase
-      .from("leads")
-      .select("first_name, total_score, typology_name, bottleneck_dimension, dimension_scores")
-      .eq("id", profile.company_id)
-      .single();
-    lead = data;
+
+    const [leadRes, sessionsRes] = await Promise.all([
+      supabase
+        .from("leads")
+        .select("first_name, total_score, typology_name, bottleneck_dimension, dimension_scores")
+        .eq("id", profile.company_id)
+        .single(),
+      supabase
+        .from("sessions")
+        .select("*")
+        .eq("lead_id", profile.company_id)
+        .eq("show_on_dashboard", true)
+        .order("created_at", { ascending: true }),
+    ]);
+
+    lead = leadRes.data;
+
+    const sessions = (sessionsRes.data ?? []) as Session[];
+    const now = new Date();
+
+    const firstBookingOpen = sessions.find((s) => s.status === "booking_open") ?? null;
+    const firstUpcoming =
+      sessions.find(
+        (s) =>
+          s.status === "booked" &&
+          s.booked_start_at &&
+          new Date(s.booked_start_at) > now
+      ) ?? null;
+
+    nextSession = firstBookingOpen ?? firstUpcoming;
+    hasBookingOpen = firstBookingOpen !== null;
   }
 
   const userName = lead?.first_name ?? "there";
@@ -75,14 +112,21 @@ export default async function PortalDashboardPage() {
             Ihr People Strategy &amp; Execution Index Überblick
           </p>
         </div>
-        <Button
-          asChild
-          className="bg-[#2d8a8a] text-white hover:bg-[#257373]"
-        >
-          <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer">
-            Strategiegespräch buchen
-          </a>
-        </Button>
+        {hasBookingOpen && nextSession ? (
+          <Button asChild className="bg-[#2d8a8a] text-white hover:bg-[#257373]">
+            <a
+              href={`${nextSession.calendly_url}?utm_content=${nextSession.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Session buchen
+            </a>
+          </Button>
+        ) : (
+          <Button asChild className="bg-[#2d8a8a] text-white hover:bg-[#257373]">
+            <Link href="/portal/sessions">Sessions ansehen</Link>
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -138,17 +182,87 @@ export default async function PortalDashboardPage() {
         <Card className="rounded-xl border shadow-sm">
           <CardContent className="p-6">
             <p className="text-sm font-medium text-[#2d8a8a]">Nächste Session</p>
-            <div className="mt-2 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-[#0f2b3c]" />
-              <span className="text-2xl font-bold text-[#0f2b3c]">Buchen</span>
-            </div>
-            <div className="mt-4">
-              <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" variant="outline" className="w-full">
-                  Termin wählen
-                </Button>
-              </a>
-            </div>
+
+            {!nextSession && (
+              <>
+                <div className="mt-2 flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Aktuell keine Session geplant
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <Link href="/portal/sessions">
+                    <Button size="sm" variant="outline" className="w-full">
+                      Sessions ansehen
+                    </Button>
+                  </Link>
+                </div>
+              </>
+            )}
+
+            {nextSession?.status === "booking_open" && (
+              <>
+                <div className="mt-2">
+                  <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                    Buchung offen
+                  </span>
+                  <p className="mt-1 font-semibold text-[#0f2b3c]">{nextSession.title}</p>
+                </div>
+                <div className="mt-4">
+                  <a
+                    href={`${nextSession.calendly_url}?utm_content=${nextSession.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button
+                      size="sm"
+                      className="w-full bg-[#0f2b3c] text-white hover:bg-[#1a3d54]"
+                    >
+                      Termin buchen
+                    </Button>
+                  </a>
+                </div>
+              </>
+            )}
+
+            {nextSession?.status === "booked" && (
+              <>
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-[#2d8a8a]" />
+                    <span className="text-sm font-medium text-[#0f2b3c]">
+                      {nextSession.booked_start_at
+                        ? formatSessionTime(nextSession.booked_start_at, nextSession.booked_end_at)
+                        : "—"}
+                    </span>
+                  </div>
+                  {nextSession.location && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{nextSession.location}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <Link href="/portal/sessions" className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full">
+                      Details
+                    </Button>
+                  </Link>
+                  {nextSession.meeting_url && (
+                    <a href={nextSession.meeting_url} target="_blank" rel="noopener noreferrer" className="flex-1">
+                      <Button
+                        size="sm"
+                        className="w-full bg-[#2d8a8a] text-white hover:bg-[#257373]"
+                      >
+                        Beitreten
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -196,14 +310,21 @@ export default async function PortalDashboardPage() {
               und einen Aktionsplan zu erstellen.
             </p>
           </div>
-          <Button
-            asChild
-            className="shrink-0 bg-[#2d8a8a] text-white hover:bg-[#257373]"
-          >
-            <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer">
-              Termin buchen
-            </a>
-          </Button>
+          {hasBookingOpen && nextSession ? (
+            <Button asChild className="shrink-0 bg-[#2d8a8a] text-white hover:bg-[#257373]">
+              <a
+                href={`${nextSession.calendly_url}?utm_content=${nextSession.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Termin buchen
+              </a>
+            </Button>
+          ) : (
+            <Button asChild className="shrink-0 bg-[#2d8a8a] text-white hover:bg-[#257373]">
+              <Link href="/portal/sessions">Sessions ansehen</Link>
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

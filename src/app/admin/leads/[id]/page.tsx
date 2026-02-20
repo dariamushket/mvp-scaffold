@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shared";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { ArrowLeft, Download, Mail, Phone, Building2, Briefcase, Users, TrendingUp } from "lucide-react";
 import { AdminMaterialsPanel } from "@/components/materials/AdminMaterialsPanel";
+import { AdminSessionsPanel } from "@/components/admin/AdminSessionsPanel";
 import { SaveNotes } from "@/components/admin/SaveNotes";
 import { InviteButton } from "@/components/admin/InviteButton";
 import { listMaterialsByCompany } from "@/lib/materials";
@@ -219,6 +220,9 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               <SaveNotes leadId={lead.id} initialNotes={lead.notes ?? ""} />
             </CardContent>
           </Card>
+
+          {/* Sessions */}
+          <AdminSessionsPanel leadId={lead.id} />
 
           {/* Materials */}
           <AdminMaterialsPanel companyId={companyId} initialMaterials={materials} />
