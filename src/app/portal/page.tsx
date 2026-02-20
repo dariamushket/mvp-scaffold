@@ -7,7 +7,7 @@ import { getProfile } from "@/lib/auth/getProfile";
 import { createClient } from "@/lib/supabase/server";
 import { DimensionScore } from "@/types";
 
-const BOOKING_URL = "https://calendly.com/psei/executive-diagnose";
+const BOOKING_URL = "https://calendly.com/tcinar/psei";
 
 function getStatusLabel(score: number, maxScore: number): string {
   const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;

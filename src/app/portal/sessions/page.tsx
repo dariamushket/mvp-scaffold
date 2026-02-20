@@ -2,7 +2,7 @@
 
 import { Button, Card, CardContent } from "@/components/ui";
 
-const BOOKING_URL = "https://calendly.com/psei/executive-diagnose";
+const BOOKING_URL = "https://calendly.com/tcinar/psei";
 
 type Session = {
   id: string;
