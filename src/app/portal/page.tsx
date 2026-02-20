@@ -7,6 +7,8 @@ import { getProfile } from "@/lib/auth/getProfile";
 import { createClient } from "@/lib/supabase/server";
 import { DimensionScore, Session } from "@/types";
 
+const FALLBACK_BOOKING_URL = "https://calendly.com/tcinar/psei";
+
 function getStatusLabel(score: number, maxScore: number): string {
   const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
   if (pct >= 80) return "Stark";
@@ -124,7 +126,9 @@ export default async function PortalDashboardPage() {
           </Button>
         ) : (
           <Button asChild className="bg-[#2d8a8a] text-white hover:bg-[#257373]">
-            <Link href="/portal/sessions">Sessions ansehen</Link>
+            <a href={FALLBACK_BOOKING_URL} target="_blank" rel="noopener noreferrer">
+              Strategiegespräch buchen
+            </a>
           </Button>
         )}
       </div>
@@ -186,17 +190,15 @@ export default async function PortalDashboardPage() {
             {!nextSession && (
               <>
                 <div className="mt-2 flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Aktuell keine Session geplant
-                  </span>
+                  <Calendar className="h-5 w-5 text-[#0f2b3c]" />
+                  <span className="text-2xl font-bold text-[#0f2b3c]">Buchen</span>
                 </div>
                 <div className="mt-4">
-                  <Link href="/portal/sessions">
+                  <a href={FALLBACK_BOOKING_URL} target="_blank" rel="noopener noreferrer">
                     <Button size="sm" variant="outline" className="w-full">
-                      Sessions ansehen
+                      Termin wählen
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </>
             )}
@@ -322,7 +324,9 @@ export default async function PortalDashboardPage() {
             </Button>
           ) : (
             <Button asChild className="shrink-0 bg-[#2d8a8a] text-white hover:bg-[#257373]">
-              <Link href="/portal/sessions">Sessions ansehen</Link>
+              <a href={FALLBACK_BOOKING_URL} target="_blank" rel="noopener noreferrer">
+                Termin buchen
+              </a>
             </Button>
           )}
         </CardContent>
