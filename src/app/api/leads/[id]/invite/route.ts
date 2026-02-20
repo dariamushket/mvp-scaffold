@@ -17,7 +17,7 @@ export async function POST(
   const adminClient = createAdminClient();
   const { data: lead, error: fetchError } = await adminClient
     .from("leads")
-    .select("email, company_id")
+    .select("email, id")
     .eq("id", id)
     .single();
 
@@ -32,7 +32,7 @@ export async function POST(
     lead.email,
     {
       data: {
-        company_id: lead.company_id,
+        company_id: lead.id,
         role: "customer",
       },
     }
