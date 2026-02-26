@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { Button, Card, CardContent } from "@/components/ui";
-import { Calendar, BarChart2, MapPin } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 import { requireAuth } from "@/lib/auth/requireRole";
 import { getProfile } from "@/lib/auth/getProfile";
 import { createClient } from "@/lib/supabase/server";
-import { DimensionScore, Session } from "@/types";
+import { DimensionScore, Session, Task, TaskTag } from "@/types";
 
 const FALLBACK_BOOKING_URL = "https://calendly.com/tcinar/psei";
 
@@ -35,13 +36,25 @@ function getScoreColor(score: number): string {
 
 function formatSessionTime(start: string, end: string | null): string {
   const startDate = new Date(start);
-  const day = startDate.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
+  const day = startDate.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
   const startTime = startDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
   if (end) {
     const endTime = new Date(end).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
     return `${day} · ${startTime}–${endTime} Uhr`;
   }
   return `${day} · ${startTime} Uhr`;
+}
+
+function formatDeadline(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+}
+
+function daysOverdue(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const deadline = new Date(dateStr);
+  deadline.setHours(0, 0, 0, 0);
+  return Math.floor((today.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export default async function PortalDashboardPage() {
@@ -59,11 +72,14 @@ export default async function PortalDashboardPage() {
 
   let nextSession: Session | null = null;
   let hasBookingOpen = false;
+  let hasBooked = false;
+  let allTasks: Task[] = [];
+  let tags: TaskTag[] = [];
 
   if (profile.company_id) {
     const supabase = await createClient();
 
-    const [leadRes, sessionsRes] = await Promise.all([
+    const [leadRes, sessionsRes, tasksRes, tagsRes] = await Promise.all([
       supabase
         .from("leads")
         .select("first_name, total_score, typology_name, bottleneck_dimension, dimension_scores")
@@ -75,9 +91,18 @@ export default async function PortalDashboardPage() {
         .eq("lead_id", profile.company_id)
         .eq("show_on_dashboard", true)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("tasks")
+        .select("*")
+        .eq("company_id", profile.company_id),
+      supabase
+        .from("task_tags")
+        .select("*"),
     ]);
 
     lead = leadRes.data;
+    allTasks = (tasksRes.data ?? []) as Task[];
+    tags = (tagsRes.data ?? []) as TaskTag[];
 
     const sessions = (sessionsRes.data ?? []) as Session[];
     const now = new Date();
@@ -93,6 +118,7 @@ export default async function PortalDashboardPage() {
 
     nextSession = firstBookingOpen ?? firstUpcoming;
     hasBookingOpen = firstBookingOpen !== null;
+    hasBooked = firstUpcoming !== null;
   }
 
   const userName = lead?.first_name ?? "there";
@@ -101,6 +127,23 @@ export default async function PortalDashboardPage() {
   const dimensionScores: DimensionScore[] = Array.isArray(lead?.dimension_scores)
     ? (lead!.dimension_scores as DimensionScore[])
     : [];
+
+  // Task stats
+  const totalTasks = allTasks.length;
+  const openTasks = allTasks.filter((t) => t.status !== "done");
+  const doneTasks = allTasks.filter((t) => t.status === "done");
+  const openCount = openTasks.length;
+  const doneCount = doneTasks.length;
+  const progressPct = totalTasks > 0 ? Math.round((doneCount / totalTasks) * 100) : 0;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdueTasks = allTasks.filter(
+    (t) =>
+      t.status !== "done" &&
+      t.deadline &&
+      new Date(t.deadline) < today
+  );
 
   return (
     <div>
@@ -123,6 +166,10 @@ export default async function PortalDashboardPage() {
             >
               Session buchen
             </a>
+          </Button>
+        ) : hasBooked ? (
+          <Button asChild variant="outline">
+            <Link href="/portal/sessions">Sessions ansehen</Link>
           </Button>
         ) : (
           <Button asChild className="bg-[#2d8a8a] text-white hover:bg-[#257373]">
@@ -162,25 +209,29 @@ export default async function PortalDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Scorecard Link Card */}
-        <Card className="rounded-xl border shadow-sm">
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-[#0f2b3c]">Dimension-Analyse</p>
-            <div className="mt-2 flex items-center gap-2">
-              <BarChart2 className="h-6 w-6 text-[#2d8a8a]" />
-              <span className="text-lg font-bold text-[#0f2b3c]">
-                {dimensionScores.length > 0 ? `${dimensionScores.length} Dimensionen` : "Ausstehend"}
-              </span>
-            </div>
-            <div className="mt-4">
-              <Link href="/portal/scorecard">
-                <Button size="sm" variant="outline" className="w-full">
-                  Scorecard ansehen
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Open Tasks Card */}
+        <Link href="/portal/tasks" className="block">
+          <Card className="h-full rounded-xl border shadow-sm transition-colors hover:border-[#2d8a8a]/40">
+            <CardContent className="p-6">
+              <p className="text-sm font-medium text-[#0f2b3c]">Offene Aufgaben</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-5xl font-bold text-[#0f2b3c]">
+                  {openCount}
+                </span>
+                <span className="text-xl text-muted-foreground">/ {totalTasks}</span>
+              </div>
+              <div className="mt-4">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-[#2d8a8a] transition-all"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">{doneCount} erledigt</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* Next Session Card */}
         <Card className="rounded-xl border shadow-sm">
@@ -211,19 +262,22 @@ export default async function PortalDashboardPage() {
                   </span>
                   <p className="mt-1 font-semibold text-[#0f2b3c]">{nextSession.title}</p>
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 flex gap-2">
                   <a
                     href={`${nextSession.calendly_url}?utm_content=${nextSession.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    className="flex-1"
                   >
-                    <Button
-                      size="sm"
-                      className="w-full bg-[#0f2b3c] text-white hover:bg-[#1a3d54]"
-                    >
+                    <Button size="sm" className="w-full bg-[#0f2b3c] text-white hover:bg-[#1a3d54]">
                       Termin buchen
                     </Button>
                   </a>
+                  <Link href="/portal/sessions" className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full">
+                      Details
+                    </Button>
+                  </Link>
                 </div>
               </>
             )}
@@ -254,10 +308,7 @@ export default async function PortalDashboardPage() {
                   </Link>
                   {nextSession.meeting_url && (
                     <a href={nextSession.meeting_url} target="_blank" rel="noopener noreferrer" className="flex-1">
-                      <Button
-                        size="sm"
-                        className="w-full bg-[#2d8a8a] text-white hover:bg-[#257373]"
-                      >
+                      <Button size="sm" className="w-full bg-[#2d8a8a] text-white hover:bg-[#257373]">
                         Beitreten
                       </Button>
                     </a>
@@ -271,7 +322,7 @@ export default async function PortalDashboardPage() {
 
       {/* Dimensions Overview */}
       {dimensionScores.length > 0 && (
-        <div>
+        <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold text-[#0f2b3c]">
             Ihre Dimensionen im Überblick
           </h2>
@@ -302,35 +353,60 @@ export default async function PortalDashboardPage() {
         </div>
       )}
 
-      {/* Next Action CTA */}
-      <Card className="mt-8 rounded-xl border-[#2d8a8a] bg-[#f0f7f7]">
-        <CardContent className="flex items-center justify-between p-6">
-          <div>
-            <h3 className="font-semibold text-[#0f2b3c]">Nächster Schritt</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Buchen Sie ein Strategiegespräch, um Ihre Ergebnisse zu besprechen
-              und einen Aktionsplan zu erstellen.
-            </p>
+      {/* Overdue Tasks */}
+      {overdueTasks.length > 0 && (
+        <div className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <h2 className="text-xl font-semibold text-[#0f2b3c]">
+                Überfällige Aufgaben
+              </h2>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-600">
+                {overdueTasks.length}
+              </span>
+            </div>
+            <Link
+              href="/portal/tasks"
+              className="text-sm font-medium text-[#2d8a8a] hover:underline"
+            >
+              Alle anzeigen →
+            </Link>
           </div>
-          {hasBookingOpen && nextSession ? (
-            <Button asChild className="shrink-0 bg-[#2d8a8a] text-white hover:bg-[#257373]">
-              <a
-                href={`${nextSession.calendly_url}?utm_content=${nextSession.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Termin buchen
-              </a>
-            </Button>
-          ) : (
-            <Button asChild className="shrink-0 bg-[#2d8a8a] text-white hover:bg-[#257373]">
-              <a href={FALLBACK_BOOKING_URL} target="_blank" rel="noopener noreferrer">
-                Termin buchen
-              </a>
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+
+          <div className="space-y-2">
+            {overdueTasks.map((task) => {
+              const tag = tags.find((t) => t.id === task.tag_id);
+              const days = daysOverdue(task.deadline!);
+              return (
+                <Link key={task.id} href="/portal/tasks">
+                  <div className="flex items-center justify-between rounded-xl border bg-white px-5 py-4 transition-colors hover:border-red-200 hover:bg-red-50/30">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-medium text-[#0f2b3c] truncate">{task.title}</span>
+                      {tag && (
+                        <span
+                          className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="ml-4 shrink-0 text-right">
+                      <p className="text-sm font-medium text-red-600">
+                        Fällig: {formatDeadline(task.deadline!)}
+                      </p>
+                      <p className="text-xs text-red-500">
+                        {days} {days === 1 ? "Tag" : "Tage"} überfällig
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
