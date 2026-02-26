@@ -30,6 +30,7 @@ const portalNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/materials", label: "Materials" },
+  { href: "/admin/task-templates", label: "Aufgaben-Vorlagen" },
 ];
 
 export function Header({ variant, isAuthenticated = false }: HeaderProps) {

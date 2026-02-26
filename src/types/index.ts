@@ -73,17 +73,85 @@ export interface Assessment {
   created_at: string;
 }
 
-// Task type for customer portal
-// TODO: Create tasks table in Supabase
+// Task types
+export type TaskStatus = 'not_started' | 'in_progress' | 'done';
+
+export interface TaskTag {
+  id: string;
+  name: string;
+  color: string;
+  created_at: string;
+}
+
 export interface Task {
   id: string;
-  user_id: string;
+  company_id: string;
   title: string;
   description: string | null;
-  status: "pending" | "in_progress" | "completed";
-  due_date: string | null;
+  status: TaskStatus;
+  tag_id: string | null;
+  deadline: string | null;
+  position: number;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
+  // optional joined relations
+  tag?: TaskTag | null;
+  subtasks?: Subtask[];
+  attachments?: TaskAttachment[];
+  comments?: TaskComment[];
+}
+
+export interface Subtask {
+  id: string;
+  task_id: string;
+  title: string;
+  is_done: boolean;
+  deadline: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  label: string;
+  url: string;
+  type: 'link' | 'material';
+  material_id: string | null;
+  created_at: string;
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface TaskTemplateTaskDef {
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  tag_id?: string;
+  deadline_offset_days?: number;
+  subtasks?: Array<{ title: string; deadline_offset_days?: number }>;
+  attachments?: Array<{ label: string; url: string; type?: 'link' | 'material' }>;
+}
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  tag_id: string | null;
+  created_by: string | null;
+  last_used_at: string | null;
+  payload: TaskTemplateTaskDef[];
+  created_at: string;
+  updated_at: string;
+  tag?: TaskTag | null;
 }
 
 // Session type for coaching sessions (sessions table)
