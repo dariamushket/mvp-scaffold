@@ -47,20 +47,14 @@ export function TaskCard({ task, tags, onOpenDrawer }: TaskCardProps) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`group relative rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${
+      {...listeners}
+      className={`group relative rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md cursor-grab active:cursor-grabbing ${
         isDragging ? "shadow-lg" : ""
       }`}
     >
-      {/* Drag handle (full card is draggable) */}
-      <div
-        {...listeners}
-        className="absolute inset-0 cursor-grab rounded-xl active:cursor-grabbing"
-      />
-
-      {/* Click area for drawer (on top of drag handle for pointer events) */}
       <button
         onClick={() => onOpenDrawer(task.id)}
-        className="relative z-10 block w-full text-left"
+        className="block w-full text-left"
       >
         {/* Tag */}
         {tag && (

@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Task, TaskTag, TaskTemplate, TaskTemplateTaskDef, TaskStatus } from "@/types";
 
 interface SubtaskRow { id?: string; title: string; deadline: string; is_done?: boolean; }
-interface AttachmentRow { id?: string; label: string; url: string; type: 'link' | 'material'; }
+interface AttachmentRow { id?: string; label: string; url: string; type: 'link' | 'material'; material_id?: string; }
+
+const MATERIAL_TYPE_OPTIONS = [
+  { value: 'document', label: 'Dokument' },
+  { value: 'presentation', label: 'Präsentation' },
+  { value: 'contract', label: 'Vertrag' },
+  { value: 'report', label: 'Bericht' },
+  { value: 'template', label: 'Vorlage' },
+  { value: 'other', label: 'Sonstiges' },
+] as const;
 
 // For task mode
 interface TaskModeProps {
@@ -78,6 +87,64 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
   const [loading, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Attachment upload form state
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [uploadType, setUploadType] = useState<string>('document');
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleAttachmentUpload() {
+    if (!uploadTitle.trim()) { setUploadError('Titel ist erforderlich'); return; }
+    if (!uploadFile) { setUploadError('Bitte eine Datei auswählen'); return; }
+    const p = props as TaskModeProps;
+    if (!p.companyId) { setUploadError('Kein Unternehmen zugewiesen'); return; }
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', uploadFile);
+      fd.append('title', uploadTitle.trim());
+      if (uploadDescription.trim()) fd.append('description', uploadDescription.trim());
+      fd.append('company_id', p.companyId);
+      fd.append('type', uploadType);
+      fd.append('is_published', 'true');
+
+      const res = await fetch('/api/materials/upload', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? 'Fehler beim Hochladen');
+      }
+      const material = await res.json();
+
+      setAttachments(prev => [
+        ...prev,
+        {
+          label: uploadTitle.trim(),
+          url: `/api/materials/${material.id}/download?redirect=true`,
+          type: 'material',
+          material_id: material.id,
+        },
+      ]);
+
+      // Reset upload form
+      setShowUploadForm(false);
+      setUploadTitle('');
+      setUploadDescription('');
+      setUploadType('document');
+      setUploadFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : 'Fehler beim Hochladen');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSave() {
     if (!title.trim()) {
       setError("Titel ist erforderlich");
@@ -131,7 +198,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
             await fetch(`/api/tasks/${taskId}/attachments`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ label: a.label.trim(), url: a.url.trim(), type: a.type }),
+              body: JSON.stringify({ label: a.label.trim(), url: a.url.trim(), type: a.type, ...(a.material_id ? { material_id: a.material_id } : {}) }),
             });
           }
         } else {
@@ -177,7 +244,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
               await fetch(`/api/tasks/${taskId}/attachments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ label: a.label.trim(), url: a.url.trim(), type: a.type }),
+                body: JSON.stringify({ label: a.label.trim(), url: a.url.trim(), type: a.type, ...(a.material_id ? { material_id: a.material_id } : {}) }),
               });
             }
           }
@@ -369,60 +436,102 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
           {/* Attachments (task mode) */}
           {isTaskMode && (
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Anhänge / Links</label>
-              <div className="space-y-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">Anhänge</label>
+              <div className="space-y-1.5">
                 {attachments.map((a, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={a.label}
-                      onChange={(e) => {
-                        const next = [...attachments];
-                        next[i] = { ...next[i], label: e.target.value };
-                        setAttachments(next);
-                      }}
-                      placeholder="Bezeichnung…"
-                      className="w-32 rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
-                    />
-                    <input
-                      type="text"
-                      value={a.url}
-                      onChange={(e) => {
-                        const next = [...attachments];
-                        next[i] = { ...next[i], url: e.target.value };
-                        setAttachments(next);
-                      }}
-                      placeholder="URL…"
-                      className="flex-1 rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
-                    />
-                    <select
-                      value={a.type}
-                      onChange={(e) => {
-                        const next = [...attachments];
-                        next[i] = { ...next[i], type: e.target.value as 'link' | 'material' };
-                        setAttachments(next);
-                      }}
-                      className="rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
-                    >
-                      <option value="link">Link</option>
-                      <option value="material">Material</option>
-                    </select>
+                  <div key={i} className="flex items-center justify-between gap-2 rounded-lg border bg-gray-50 px-3 py-2">
+                    <span className="flex-1 truncate text-sm text-gray-800">{a.label}</span>
+                    <span className="shrink-0 rounded-full bg-[#e6f4f4] px-2 py-0.5 text-xs font-medium text-[#2d8a8a] capitalize">
+                      {a.type === 'material' ? 'Datei' : 'Link'}
+                    </span>
                     <button
                       onClick={() => setAttachments(attachments.filter((_, j) => j !== i))}
-                      className="text-gray-400 hover:text-red-500"
+                      className="shrink-0 text-gray-400 hover:text-red-500"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* Upload form */}
+              {showUploadForm && (
+                <div className="mt-3 rounded-lg border bg-gray-50 p-4 space-y-3">
+                  {uploadError && (
+                    <div className="rounded bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">Typ</label>
+                      <select
+                        value={uploadType}
+                        onChange={(e) => setUploadType(e.target.value)}
+                        className="w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
+                      >
+                        {MATERIAL_TYPE_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">Titel *</label>
+                      <input
+                        type="text"
+                        value={uploadTitle}
+                        onChange={(e) => setUploadTitle(e.target.value)}
+                        placeholder="Dateiname / Titel…"
+                        className="w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">Beschreibung</label>
+                    <textarea
+                      value={uploadDescription}
+                      onChange={(e) => setUploadDescription(e.target.value)}
+                      rows={2}
+                      placeholder="Optionale Beschreibung…"
+                      className="w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a] resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">Datei *</label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-[#e6f4f4] file:px-3 file:py-1 file:text-xs file:font-medium file:text-[#2d8a8a] hover:file:bg-[#d0ecec]"
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => { setShowUploadForm(false); setUploadError(null); }}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      onClick={handleAttachmentUpload}
+                      disabled={uploading}
+                      className="flex items-center gap-1.5 rounded-md bg-[#2d8a8a] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#267878] disabled:opacity-60"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {uploading ? 'Hochladen…' : 'Hochladen'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!showUploadForm && (
                 <button
-                  onClick={() => setAttachments([...attachments, { label: '', url: '', type: 'link' }])}
-                  className="flex items-center gap-1.5 text-sm text-[#2d8a8a] hover:underline"
+                  onClick={() => { setShowUploadForm(true); setUploadError(null); }}
+                  className="mt-2 flex items-center gap-1.5 text-sm text-[#2d8a8a] hover:underline"
                 >
                   <Plus className="h-4 w-4" />
-                  Anhang hinzufügen
+                  Anhang hochladen
                 </button>
-              </div>
+              )}
             </div>
           )}
 
