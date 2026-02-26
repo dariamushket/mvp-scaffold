@@ -40,6 +40,12 @@ ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_insert" ON leads FOR INSERT TO anon WITH CHECK (true);
 CREATE POLICY "admins_all" ON leads FOR ALL
   USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+-- Customers can read their own lead row (dashboard, scorecard)
+CREATE POLICY "customers_select_own" ON leads FOR SELECT
+  USING (
+    id = (SELECT company_id FROM profiles WHERE id = auth.uid())
+    AND (SELECT role FROM profiles WHERE id = auth.uid()) = 'customer'
+  );
 
 CREATE TABLE assessments (
   id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
