@@ -183,31 +183,33 @@ export default async function PortalDashboardPage() {
       {/* Summary Cards */}
       <div className="mb-8 grid gap-6 md:grid-cols-3">
         {/* PSEI Score Card */}
-        <Card className="rounded-xl border shadow-sm">
-          <CardContent className="p-6">
-            <p className="text-sm font-medium text-[#2d8a8a]">Ihr PSEI Score</p>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className={`text-5xl font-bold ${score != null ? getScoreColor(score) : "text-[#0f2b3c]"}`}>
-                {score ?? "—"}
-              </span>
-              {score != null && (
-                <span className="text-xl text-muted-foreground">/ 100</span>
-              )}
-            </div>
-            {score != null && (
-              <div className="mt-3">
-                <span
-                  className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(scoreLabel)}`}
-                >
-                  {scoreLabel}
+        <Link href="/portal/scorecard" className="block">
+          <Card className="h-full rounded-xl border shadow-sm transition-colors hover:border-[#2d8a8a]/40">
+            <CardContent className="p-6">
+              <p className="text-sm font-medium text-[#2d8a8a]">Ihr PSEI Score</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className={`text-5xl font-bold ${score != null ? getScoreColor(score) : "text-[#0f2b3c]"}`}>
+                  {score ?? "—"}
                 </span>
+                {score != null && (
+                  <span className="text-xl text-muted-foreground">/ 100</span>
+                )}
               </div>
-            )}
-            {lead?.typology_name && (
-              <p className="mt-2 text-sm text-muted-foreground">{lead.typology_name}</p>
-            )}
-          </CardContent>
-        </Card>
+              {score != null && (
+                <div className="mt-3">
+                  <span
+                    className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(scoreLabel)}`}
+                  >
+                    {scoreLabel}
+                  </span>
+                </div>
+              )}
+              {lead?.typology_name && (
+                <p className="mt-2 text-sm text-muted-foreground">{lead.typology_name}</p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* Open Tasks Card */}
         <Link href="/portal/tasks" className="block">
