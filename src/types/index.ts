@@ -186,6 +186,7 @@ export interface Material {
   company_id: string;
   uploaded_by: string;
   is_published: boolean;
+  type: string;
   created_at: string;
   updated_at: string;
 }

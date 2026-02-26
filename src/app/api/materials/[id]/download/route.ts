@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMaterialById } from "@/lib/materials";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireAuth();
@@ -29,6 +29,11 @@ export async function GET(
   if (signedUrlError || !signedUrlData) {
     console.error("Signed URL error:", signedUrlError);
     return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 });
+  }
+
+  const redirect = request.nextUrl.searchParams.get("redirect");
+  if (redirect === "true") {
+    return NextResponse.redirect(signedUrlData.signedUrl);
   }
 
   return NextResponse.json({ signedUrl: signedUrlData.signedUrl });

@@ -255,7 +255,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
             </Card>
 
             {/* Sessions */}
-            <AdminSessionsPanel leadId={lead.id} />
+            <AdminSessionsPanel leadId={lead.id} companyId={companyId} />
           </div>
 
           {/* Sidebar */}

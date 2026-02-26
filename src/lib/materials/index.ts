@@ -51,6 +51,8 @@ export async function createMaterialRecord(data: {
   storage_path: string;
   company_id: string;
   uploaded_by: string;
+  type?: string;
+  is_published?: boolean;
 }): Promise<Material | null> {
   const supabase = await createClient();
   const { data: material, error } = await supabase
