@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/requireRole";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createMaterialRecord } from "@/lib/materials";
+import { MaterialType } from "@/types";
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
+
+const ALLOWED_TYPES: MaterialType[] = ["scorecard", "meeting_notes", "document", "product"];
 
 const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
@@ -27,14 +30,18 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file") as File | null;
   const title = formData.get("title") as string | null;
   const description = formData.get("description") as string | null;
-  const companyId = formData.get("company_id") as string | null;
-  const type = (formData.get("type") as string | null) ?? "document";
+  const companyIdRaw = formData.get("company_id") as string | null;
+  const companyId = companyIdRaw && companyIdRaw.trim() !== "" ? companyIdRaw.trim() : null;
+  const typeRaw = (formData.get("type") as string | null) ?? "document";
+  const type: MaterialType = ALLOWED_TYPES.includes(typeRaw as MaterialType)
+    ? (typeRaw as MaterialType)
+    : "document";
   const isPublishedRaw = formData.get("is_published") as string | null;
   const isPublished = isPublishedRaw === "true";
   const tagId = (formData.get("tag_id") as string | null) || null;
 
-  if (!file || !title || !companyId) {
-    return NextResponse.json({ error: "Missing required fields: file, title, company_id" }, { status: 400 });
+  if (!file || !title) {
+    return NextResponse.json({ error: "Missing required fields: file, title" }, { status: 400 });
   }
 
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
@@ -49,7 +56,10 @@ export async function POST(request: NextRequest) {
   }
 
   const materialId = crypto.randomUUID();
-  const storagePath = `${companyId}/${materialId}/${file.name}`;
+  // Shared materials go into a "shared/" prefix; company-specific into "{companyId}/"
+  const storagePath = companyId
+    ? `${companyId}/${materialId}/${file.name}`
+    : `shared/${materialId}/${file.name}`;
 
   const adminClient = createAdminClient();
   const fileBuffer = await file.arrayBuffer();

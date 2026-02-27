@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button, Badge, Input, Label, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Upload, Trash2, Download, Eye, EyeOff, FileText, Loader2 } from "lucide-react";
-import { Material, TaskTag } from "@/types";
+import { Material, MaterialType, TaskTag } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { TagSelect } from "@/components/ui/TagSelect";
 
@@ -12,6 +12,20 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+const TYPE_LABELS: Record<MaterialType, string> = {
+  scorecard: "Scorecard",
+  document: "Document",
+  product: "Product",
+  meeting_notes: "Meeting Notes",
+};
+
+// Exclude meeting_notes from upload form — those come via SessionEditorModal
+const UPLOAD_TYPES: { value: MaterialType; label: string }[] = [
+  { value: "scorecard", label: "Scorecard" },
+  { value: "document", label: "Document" },
+  { value: "product", label: "Product" },
+];
 
 interface AdminMaterialsPanelProps {
   companyId: string;
@@ -25,6 +39,7 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
   const [isUploading, setIsUploading] = useState(false);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
+  const [uploadType, setUploadType] = useState<MaterialType>("document");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTagId, setUploadTagId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +68,7 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
     formData.append("title", uploadTitle);
     formData.append("description", uploadDescription);
     formData.append("company_id", companyId);
+    formData.append("type", uploadType);
     if (uploadTagId) formData.append("tag_id", uploadTagId);
 
     try {
@@ -173,6 +189,9 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="truncate text-sm font-medium">{material.title}</span>
+                    <Badge variant="outline" className="shrink-0 text-xs capitalize">
+                      {TYPE_LABELS[material.type] ?? material.type}
+                    </Badge>
                     <Badge
                       variant={material.is_published ? "default" : "outline"}
                       className="shrink-0 text-xs"
@@ -269,6 +288,21 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
               value={uploadDescription}
               onChange={(e) => setUploadDescription(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="upload-type">Type</Label>
+            <select
+              id="upload-type"
+              value={uploadType}
+              onChange={(e) => setUploadType(e.target.value as MaterialType)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {UPLOAD_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label>Tag (optional)</Label>

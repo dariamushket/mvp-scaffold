@@ -192,6 +192,8 @@ export interface Session {
   updated_at: string;
 }
 
+export type MaterialType = 'scorecard' | 'meeting_notes' | 'document' | 'product';
+
 export interface Material {
   id: string;
   title: string;
@@ -200,10 +202,10 @@ export interface Material {
   mime_type: string;
   size_bytes: number;
   storage_path: string;
-  company_id: string;
+  company_id: string | null;   // null = shared (visible to all customers)
   uploaded_by: string;
   is_published: boolean;
-  type: string;
+  type: MaterialType;
   tag_id: string | null;
   tag?: TaskTag | null;
   created_at: string;

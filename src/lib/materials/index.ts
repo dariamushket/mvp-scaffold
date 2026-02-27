@@ -42,6 +42,37 @@ export async function getMaterialById(id: string): Promise<Material | null> {
   return data as Material;
 }
 
+export async function listSharedMaterials(): Promise<Material[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("materials")
+    .select("*, tag:task_tags(*)")
+    .is("company_id", null)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching shared materials:", error);
+    return [];
+  }
+  return (data ?? []) as Material[];
+}
+
+export async function listMaterialsForPortal(companyId: string): Promise<Material[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("materials")
+    .select("*, tag:task_tags(*)")
+    .eq("is_published", true)
+    .or(`company_id.eq.${companyId},company_id.is.null`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching portal materials:", error);
+    return [];
+  }
+  return (data ?? []) as Material[];
+}
+
 export async function createMaterialRecord(data: {
   title: string;
   description: string | null;
@@ -49,7 +80,7 @@ export async function createMaterialRecord(data: {
   mime_type: string;
   size_bytes: number;
   storage_path: string;
-  company_id: string;
+  company_id?: string | null;
   uploaded_by: string;
   type?: string;
   is_published?: boolean;
