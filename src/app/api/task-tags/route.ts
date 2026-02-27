@@ -4,17 +4,24 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 // GET /api/task-tags — authenticated users
-export async function GET(_request: NextRequest) {
+// ?include_archived=true to include archived tags (admin only)
+export async function GET(request: NextRequest) {
   const auth = await requireAuth();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const includeArchived = request.nextUrl.searchParams.get("include_archived") === "true";
+
   if (auth.profile.role === "admin") {
-    const { data, error } = await createAdminClient()
+    let query = createAdminClient()
       .from("task_tags")
       .select("*")
       .order("name");
+    if (!includeArchived) {
+      query = query.eq("is_archived", false);
+    }
+    const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data);
   }
@@ -23,6 +30,7 @@ export async function GET(_request: NextRequest) {
   const { data, error } = await supabase
     .from("task_tags")
     .select("*")
+    .eq("is_archived", false)
     .order("name");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

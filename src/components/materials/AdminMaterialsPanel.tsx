@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Badge, Input, Label, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Upload, Trash2, Download, Eye, EyeOff, FileText, Loader2 } from "lucide-react";
-import { Material } from "@/types";
+import { Material, TaskTag } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { TagSelect } from "@/components/ui/TagSelect";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -19,12 +20,26 @@ interface AdminMaterialsPanelProps {
 
 export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMaterialsPanelProps) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
+  const [tags, setTags] = useState<TaskTag[]>([]);
+  const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTagId, setUploadTagId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/task-tags")
+      .then((r) => r.json())
+      .then((data) => setTags(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  const filteredMaterials = filterTagId
+    ? materials.filter((m) => m.tag_id === filterTagId)
+    : materials;
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +53,7 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
     formData.append("title", uploadTitle);
     formData.append("description", uploadDescription);
     formData.append("company_id", companyId);
+    if (uploadTagId) formData.append("tag_id", uploadTagId);
 
     try {
       const response = await fetch("/api/materials/upload", {
@@ -83,6 +99,26 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
     setLoadingId(null);
   };
 
+  const handleTagChange = async (id: string, tagId: string | null) => {
+    const response = await fetch(`/api/materials/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tag_id: tagId }),
+    });
+    if (response.ok) {
+      const newTag = tags.find((t) => t.id === tagId) ?? null;
+      setMaterials((prev) =>
+        prev.map((m) =>
+          m.id === id ? { ...m, tag_id: tagId, tag: newTag } : m
+        )
+      );
+    }
+  };
+
+  const handleTagCreated = (newTag: TaskTag) => {
+    setTags((prev) => [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name)));
+  };
+
   const handleDownload = async (id: string) => {
     const response = await fetch(`/api/materials/${id}/download`);
     if (!response.ok) return;
@@ -96,14 +132,46 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
         <CardTitle>Materials</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Tag filter pills */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilterTagId(null)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                filterTagId === null
+                  ? "bg-[#0f2b3c] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Alle
+            </button>
+            {tags.map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  filterTagId === tag.id ? "text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                style={filterTagId === tag.id ? { backgroundColor: tag.color } : undefined}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: filterTagId === tag.id ? "white" : tag.color }}
+                />
+                {tag.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* File list */}
-        {materials.length > 0 ? (
+        {filteredMaterials.length > 0 ? (
           <div className="space-y-3">
-            {materials.map((material) => (
-              <div key={material.id} className="flex items-center gap-3 rounded-lg border p-3">
-                <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+            {filteredMaterials.map((material) => (
+              <div key={material.id} className="flex items-start gap-3 rounded-lg border p-3">
+                <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="truncate text-sm font-medium">{material.title}</span>
                     <Badge
                       variant={material.is_published ? "default" : "outline"}
@@ -111,10 +179,28 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
                     >
                       {material.is_published ? "Published" : "Draft"}
                     </Badge>
+                    {material.tag && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                        style={{ backgroundColor: material.tag.color }}
+                      >
+                        {material.tag.name}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {material.file_name} · {formatFileSize(material.size_bytes)} ·{" "}
                     {formatDate(material.created_at)}
+                  </div>
+                  {/* Inline tag selector */}
+                  <div className="max-w-[200px]">
+                    <TagSelect
+                      tags={tags}
+                      value={material.tag_id}
+                      onChange={(tagId) => handleTagChange(material.id, tagId)}
+                      onTagCreated={handleTagCreated}
+                      placeholder="Tag zuweisen…"
+                    />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -182,6 +268,16 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
               placeholder="Brief description"
               value={uploadDescription}
               onChange={(e) => setUploadDescription(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Tag (optional)</Label>
+            <TagSelect
+              tags={tags}
+              value={uploadTagId}
+              onChange={setUploadTagId}
+              onTagCreated={handleTagCreated}
+              placeholder="Tag zuweisen…"
             />
           </div>
           <div className="space-y-2">

@@ -31,6 +31,7 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/materials", label: "Materials" },
   { href: "/admin/task-templates", label: "Aufgaben-Vorlagen" },
+  { href: "/admin/tags", label: "Tags" },
 ];
 
 export function Header({ variant, isAuthenticated = false }: HeaderProps) {

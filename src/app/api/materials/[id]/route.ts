@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/requireRole";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteMaterialRecord, togglePublish, getMaterialById } from "@/lib/materials";
+import { deleteMaterialRecord, getMaterialById } from "@/lib/materials";
 
 export async function DELETE(
   _request: NextRequest,
@@ -43,19 +43,33 @@ export async function PATCH(
 
   const { id } = await params;
 
-  let body: { is_published?: unknown };
+  let body: { is_published?: unknown; tag_id?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (typeof body.is_published !== "boolean") {
-    return NextResponse.json({ error: "is_published must be a boolean" }, { status: 400 });
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (typeof body.is_published === "boolean") {
+    updates.is_published = body.is_published;
+  }
+  if ("tag_id" in body) {
+    updates.tag_id = body.tag_id ?? null;
   }
 
-  const success = await togglePublish(id, body.is_published);
-  if (!success) {
+  if (Object.keys(updates).length === 1) {
+    // only updated_at set — nothing actually changed
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
+  const { error } = await createAdminClient()
+    .from("materials")
+    .update(updates)
+    .eq("id", id);
+
+  if (error) {
     return NextResponse.json({ error: "Failed to update material" }, { status: 500 });
   }
 

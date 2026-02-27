@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
   const type = (formData.get("type") as string | null) ?? "document";
   const isPublishedRaw = formData.get("is_published") as string | null;
   const isPublished = isPublishedRaw === "true";
+  const tagId = (formData.get("tag_id") as string | null) || null;
 
   if (!file || !title || !companyId) {
     return NextResponse.json({ error: "Missing required fields: file, title, company_id" }, { status: 400 });
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     uploaded_by: auth.user.id,
     type,
     is_published: isPublished,
+    tag_id: tagId,
   });
 
   if (!material) {

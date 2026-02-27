@@ -5,7 +5,7 @@ export async function listMaterialsByCompany(companyId: string): Promise<Materia
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("*")
+    .select("*, tag:task_tags(*)")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
@@ -20,7 +20,7 @@ export async function listAllMaterials(): Promise<Material[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("*")
+    .select("*, tag:task_tags(*)")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -34,7 +34,7 @@ export async function getMaterialById(id: string): Promise<Material | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("*")
+    .select("*, tag:task_tags(*)")
     .eq("id", id)
     .single();
 
@@ -53,12 +53,13 @@ export async function createMaterialRecord(data: {
   uploaded_by: string;
   type?: string;
   is_published?: boolean;
+  tag_id?: string | null;
 }): Promise<Material | null> {
   const supabase = await createClient();
   const { data: material, error } = await supabase
     .from("materials")
     .insert(data)
-    .select()
+    .select("*, tag:task_tags(*)")
     .single();
 
   if (error) {

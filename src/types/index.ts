@@ -80,6 +80,7 @@ export interface TaskTag {
   id: string;
   name: string;
   color: string;
+  is_archived: boolean;
   created_at: string;
 }
 
@@ -203,6 +204,8 @@ export interface Material {
   uploaded_by: string;
   is_published: boolean;
   type: string;
+  tag_id: string | null;
+  tag?: TaskTag | null;
   created_at: string;
   updated_at: string;
 }

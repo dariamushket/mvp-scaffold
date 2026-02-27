@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { X, Plus, Trash2, Upload, ChevronDown, ChevronRight, Link } from "lucide-react";
 import { Button } from "@/components/ui";
+import { TagSelect } from "@/components/ui/TagSelect";
 import { Task, TaskTag, TaskTemplate, TaskTemplateTaskDef, TaskStatus, SubtaskAttachment } from "@/types";
 
 interface SubtaskRow {
@@ -67,9 +68,14 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
   const [description, setDescription] = useState(
     isTaskMode ? (props as TaskModeProps).initialTask?.description ?? '' : (props as TemplateModeProps).initialTemplate?.description ?? ''
   );
-  const [tagId, setTagId] = useState(
+  const [tagId, setTagId] = useState<string>(
     isTaskMode ? (props as TaskModeProps).initialTask?.tag_id ?? '' : (props as TemplateModeProps).initialTemplate?.tag_id ?? ''
   );
+  const [localTags, setLocalTags] = useState<TaskTag[]>(props.tags);
+
+  function handleTagCreated(newTag: TaskTag) {
+    setLocalTags((prev) => [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name)));
+  }
   const [deadline, setDeadline] = useState(
     isTaskMode ? (props as TaskModeProps).initialTask?.deadline ?? '' : ''
   );
@@ -530,16 +536,12 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Tag</label>
-              <select
-                value={tagId}
-                onChange={(e) => setTagId(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#2d8a8a]"
-              >
-                <option value="">Kein Tag</option>
-                {props.tags.map((tag) => (
-                  <option key={tag.id} value={tag.id}>{tag.name}</option>
-                ))}
-              </select>
+              <TagSelect
+                tags={localTags}
+                value={tagId || null}
+                onChange={(id) => setTagId(id ?? '')}
+                onTagCreated={handleTagCreated}
+              />
             </div>
 
             {isTaskMode && (

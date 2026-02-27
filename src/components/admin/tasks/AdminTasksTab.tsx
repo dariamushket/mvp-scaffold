@@ -18,6 +18,7 @@ export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
   const [tags, setTags] = useState<TaskTag[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [filterTagId, setFilterTagId] = useState<string | null>(null);
 
   // Modals
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -109,6 +110,10 @@ export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
     await loadTasks();
   }
 
+  const filteredTasks = filterTagId
+    ? tasks.filter((t) => t.tag_id === filterTagId)
+    : tasks;
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -139,11 +144,43 @@ export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
         </div>
       </div>
 
+      {/* Tag filter pills */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterTagId(null)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              filterTagId === null
+                ? "bg-[#0f2b3c] text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Alle
+          </button>
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                filterTagId === tag.id ? "text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+              style={filterTagId === tag.id ? { backgroundColor: tag.color } : undefined}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: filterTagId === tag.id ? "white" : tag.color }}
+              />
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="py-12 text-center text-gray-400">Lade Aufgaben…</div>
       ) : (
         <AdminTasksTreeTable
-          tasks={tasks}
+          tasks={filteredTasks}
           tags={tags}
           selectedIds={selectedIds}
           onSelectId={handleSelectId}
