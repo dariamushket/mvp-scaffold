@@ -102,6 +102,16 @@ export interface Task {
   comments?: TaskComment[];
 }
 
+export interface SubtaskAttachment {
+  id: string;
+  subtask_id: string;
+  label: string;
+  url: string;
+  type: 'link' | 'material';
+  material_id: string | null;
+  created_at: string;
+}
+
 export interface Subtask {
   id: string;
   task_id: string;
@@ -111,6 +121,8 @@ export interface Subtask {
   position: number;
   created_at: string;
   updated_at: string;
+  // optional joined relations
+  attachments?: SubtaskAttachment[];
 }
 
 export interface TaskAttachment {
@@ -137,7 +149,11 @@ export interface TaskTemplateTaskDef {
   status?: TaskStatus;
   tag_id?: string;
   deadline_offset_days?: number;
-  subtasks?: Array<{ title: string; deadline_offset_days?: number }>;
+  subtasks?: Array<{
+    title: string;
+    deadline_offset_days?: number;
+    attachments?: Array<{ label: string; url: string; type?: 'link' | 'material' }>;
+  }>;
   attachments?: Array<{ label: string; url: string; type?: 'link' | 'material' }>;
 }
 

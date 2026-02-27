@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
     const { data, error } = await createAdminClient()
       .from("tasks")
-      .select("*, tag:task_tags(*), subtasks(*), attachments:task_attachments(*)")
+      .select("*, tag:task_tags(*), subtasks(*, attachments:subtask_attachments(*)), attachments:task_attachments(*)")
       .eq("company_id", companyId)
       .order("status")
       .order("position");
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, tag:task_tags(*), subtasks(*), attachments:task_attachments(*)")
+    .select("*, tag:task_tags(*), subtasks(*, attachments:subtask_attachments(*)), attachments:task_attachments(*)")
     .order("status")
     .order("position");
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       position: position ?? 0,
       created_by: auth.user.id,
     })
-    .select("*, tag:task_tags(*), subtasks(*), attachments:task_attachments(*)")
+    .select("*, tag:task_tags(*), subtasks(*, attachments:subtask_attachments(*)), attachments:task_attachments(*)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

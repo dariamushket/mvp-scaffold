@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Paperclip } from "lucide-react";
 import { Task, TaskTag, TaskStatus } from "@/types";
 
 interface AdminTasksTreeTableProps {
@@ -170,48 +170,80 @@ export function AdminTasksTreeTable({
 
                 {/* Inline subtask rows */}
                 {isExpanded &&
-                  subtasks.map((sub) => (
-                    <tr key={sub.id} className="border-b bg-gray-50/50 text-xs text-gray-600">
-                      <td className="px-4 py-2" />
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2 pl-6">
-                          <span
-                            className={`h-3 w-3 rounded-full border-2 shrink-0 ${
-                              sub.is_done ? "border-[#2d8a8a] bg-[#2d8a8a]" : "border-gray-300"
-                            }`}
-                          />
-                          <span className={sub.is_done ? "line-through text-gray-400" : ""}>
-                            {sub.title}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2">
-                        {sub.is_done ? (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Erledigt</span>
-                        ) : (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Offen</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-gray-400">—</td>
-                      <td className="px-4 py-2">
-                        {sub.deadline ? (
-                          <span
-                            className={
-                              new Date(sub.deadline) < new Date() && !sub.is_done
-                                ? "text-red-600 font-medium"
-                                : ""
-                            }
-                          >
-                            {formatDate(sub.deadline)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-gray-400">{formatDate(sub.updated_at)}</td>
-                      <td className="px-4 py-2" />
-                    </tr>
-                  ))}
+                  subtasks.map((sub) => {
+                    const subAttachments = sub.attachments ?? [];
+                    return (
+                      <React.Fragment key={sub.id}>
+                        <tr className="border-b bg-gray-50/50 text-xs text-gray-600">
+                          <td className="px-4 py-2" />
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2 pl-6">
+                              <span
+                                className={`h-3 w-3 rounded-full border-2 shrink-0 ${
+                                  sub.is_done ? "border-[#2d8a8a] bg-[#2d8a8a]" : "border-gray-300"
+                                }`}
+                              />
+                              <span className={sub.is_done ? "line-through text-gray-400" : ""}>
+                                {sub.title}
+                              </span>
+                              {subAttachments.length > 0 && (
+                                <span className="ml-1 flex items-center gap-0.5 text-gray-400">
+                                  <Paperclip className="h-3 w-3" />
+                                  <span>{subAttachments.length}</span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2">
+                            {sub.is_done ? (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Erledigt</span>
+                            ) : (
+                              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Offen</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-gray-400">—</td>
+                          <td className="px-4 py-2">
+                            {sub.deadline ? (
+                              <span
+                                className={
+                                  new Date(sub.deadline) < new Date() && !sub.is_done
+                                    ? "text-red-600 font-medium"
+                                    : ""
+                                }
+                              >
+                                {formatDate(sub.deadline)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-gray-400">{formatDate(sub.updated_at)}</td>
+                          <td className="px-4 py-2" />
+                        </tr>
+                        {subAttachments.map((att) => (
+                          <tr key={att.id} className="border-b bg-gray-50/30 text-xs">
+                            <td className="px-4 py-1" />
+                            <td className="px-4 py-1" colSpan={6}>
+                              <div className="pl-14 flex items-center gap-1.5 text-gray-500">
+                                <Paperclip className="h-3 w-3 shrink-0" />
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-[#2d8a8a] hover:underline truncate"
+                                >
+                                  {att.label}
+                                </a>
+                                <span className="shrink-0 rounded-full bg-[#e6f4f4] px-1.5 py-0.5 text-[10px] font-medium text-[#2d8a8a]">
+                                  {att.type === 'material' ? 'Datei' : 'Link'}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
               </React.Fragment>
             );
           })}

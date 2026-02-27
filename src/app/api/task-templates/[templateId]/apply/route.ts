@@ -74,26 +74,40 @@ export async function POST(
       return NextResponse.json({ error: taskError?.message ?? "Failed to create task" }, { status: 500 });
     }
 
-    // Create subtasks
+    // Create subtasks one-by-one to support per-subtask attachments
     if (def.subtasks && def.subtasks.length > 0) {
-      const subtaskRows = def.subtasks.map((s, j) => {
+      for (let j = 0; j < def.subtasks.length; j++) {
+        const s = def.subtasks[j];
         let subtaskDeadline: string | null = null;
         if (s.deadline_offset_days != null) {
           const d = new Date(today);
           d.setDate(d.getDate() + s.deadline_offset_days);
           subtaskDeadline = d.toISOString().split("T")[0];
         }
-        return {
-          task_id: task.id,
-          title: s.title,
-          deadline: subtaskDeadline,
-          position: j,
-        };
-      });
 
-      const { error: subtaskError } = await adminClient.from("subtasks").insert(subtaskRows);
-      if (subtaskError) {
-        return NextResponse.json({ error: subtaskError.message }, { status: 500 });
+        const { data: subtask, error: subtaskError } = await adminClient
+          .from("subtasks")
+          .insert({ task_id: task.id, title: s.title, deadline: subtaskDeadline, position: j })
+          .select()
+          .single();
+
+        if (subtaskError || !subtask) {
+          return NextResponse.json({ error: subtaskError?.message ?? "Failed to create subtask" }, { status: 500 });
+        }
+
+        if (s.attachments && s.attachments.length > 0) {
+          const { error: saError } = await adminClient.from("subtask_attachments").insert(
+            s.attachments.map((a) => ({
+              subtask_id: subtask.id,
+              label: a.label,
+              url: a.url,
+              type: a.type ?? "link",
+            }))
+          );
+          if (saError) {
+            return NextResponse.json({ error: saError.message }, { status: 500 });
+          }
+        }
       }
     }
 
