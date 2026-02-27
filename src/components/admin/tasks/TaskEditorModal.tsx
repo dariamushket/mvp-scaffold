@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { X, Plus, Trash2, Upload, ChevronDown, ChevronRight, Link } from "lucide-react";
 import { Button } from "@/components/ui";
 import { TagSelect } from "@/components/ui/TagSelect";
+import { MaterialUploadForm } from "@/components/materials/MaterialUploadForm";
 import { Task, TaskTag, TaskTemplate, TaskTemplateTaskDef, TaskStatus, SubtaskAttachment } from "@/types";
 
 interface SubtaskRow {
@@ -19,15 +20,6 @@ interface AttachmentRow { id?: string; label: string; url: string; type: 'link' 
 
 // Template-mode subtask definition (link-only, no file upload in template context)
 interface TemplateLinkRow { label: string; url: string; }
-
-const MATERIAL_TYPE_OPTIONS = [
-  { value: 'document', label: 'Dokument' },
-  { value: 'presentation', label: 'Präsentation' },
-  { value: 'contract', label: 'Vertrag' },
-  { value: 'report', label: 'Bericht' },
-  { value: 'template', label: 'Vorlage' },
-  { value: 'other', label: 'Sonstiges' },
-] as const;
 
 // For task mode
 interface TaskModeProps {
@@ -122,23 +114,9 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
 
   // Parent task attachment upload form state (task mode)
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [uploadType, setUploadType] = useState<string>('document');
-  const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Subtask attachment upload form state (task mode) — keyed by subtask index
   const [subtaskUploadIdx, setSubtaskUploadIdx] = useState<number | null>(null);
-  const [subUploadType, setSubUploadType] = useState<string>('document');
-  const [subUploadTitle, setSubUploadTitle] = useState('');
-  const [subUploadDescription, setSubUploadDescription] = useState('');
-  const [subUploadFile, setSubUploadFile] = useState<File | null>(null);
-  const [subUploading, setSubUploading] = useState(false);
-  const [subUploadError, setSubUploadError] = useState<string | null>(null);
-  const subFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Helper: add a link attachment row to a subtask (task mode) ──
   function updateSubtaskAttachments(subtaskIdx: number, update: (prev: SubtaskAttachmentRow[]) => SubtaskAttachmentRow[]) {
@@ -147,90 +125,6 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
       next[subtaskIdx] = { ...next[subtaskIdx], attachments: update(next[subtaskIdx].attachments ?? []) };
       return next;
     });
-  }
-
-  // ── File upload: parent task attachment ──
-  async function handleAttachmentUpload() {
-    if (!uploadTitle.trim()) { setUploadError('Titel ist erforderlich'); return; }
-    if (!uploadFile) { setUploadError('Bitte eine Datei auswählen'); return; }
-    const p = props as TaskModeProps;
-    if (!p.companyId) { setUploadError('Kein Unternehmen zugewiesen'); return; }
-
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', uploadFile);
-      fd.append('title', uploadTitle.trim());
-      if (uploadDescription.trim()) fd.append('description', uploadDescription.trim());
-      fd.append('company_id', p.companyId);
-      fd.append('type', uploadType);
-      fd.append('is_published', 'true');
-
-      const res = await fetch('/api/materials/upload', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? 'Fehler beim Hochladen');
-      }
-      const material = await res.json();
-
-      setAttachments(prev => [...prev, {
-        label: uploadTitle.trim(),
-        url: `/api/materials/${material.id}/download?redirect=true`,
-        type: 'material',
-        material_id: material.id,
-      }]);
-
-      setShowUploadForm(false);
-      setUploadTitle(''); setUploadDescription(''); setUploadType('document'); setUploadFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (e: unknown) {
-      setUploadError(e instanceof Error ? e.message : 'Fehler beim Hochladen');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  // ── File upload: subtask attachment ──
-  async function handleSubtaskAttachmentUpload(subtaskIdx: number) {
-    if (!subUploadTitle.trim()) { setSubUploadError('Titel ist erforderlich'); return; }
-    if (!subUploadFile) { setSubUploadError('Bitte eine Datei auswählen'); return; }
-    const p = props as TaskModeProps;
-    if (!p.companyId) { setSubUploadError('Kein Unternehmen zugewiesen'); return; }
-
-    setSubUploading(true);
-    setSubUploadError(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', subUploadFile);
-      fd.append('title', subUploadTitle.trim());
-      if (subUploadDescription.trim()) fd.append('description', subUploadDescription.trim());
-      fd.append('company_id', p.companyId);
-      fd.append('type', subUploadType);
-      fd.append('is_published', 'true');
-
-      const res = await fetch('/api/materials/upload', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? 'Fehler beim Hochladen');
-      }
-      const material = await res.json();
-
-      updateSubtaskAttachments(subtaskIdx, prev => [...prev, {
-        label: subUploadTitle.trim(),
-        url: `/api/materials/${material.id}/download?redirect=true`,
-        type: 'material',
-        material_id: material.id,
-      }]);
-
-      setSubtaskUploadIdx(null);
-      setSubUploadTitle(''); setSubUploadDescription(''); setSubUploadType('document'); setSubUploadFile(null);
-      if (subFileInputRef.current) subFileInputRef.current.value = '';
-    } catch (e: unknown) {
-      setSubUploadError(e instanceof Error ? e.message : 'Fehler beim Hochladen');
-    } finally {
-      setSubUploading(false);
-    }
   }
 
   async function handleSave() {
@@ -686,61 +580,20 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
 
                           {/* Subtask upload form */}
                           {subtaskUploadIdx === i && (
-                            <div className="mt-2 rounded border bg-white p-3 space-y-2">
-                              {subUploadError && (
-                                <div className="rounded bg-red-50 px-2 py-1 text-xs text-red-700">{subUploadError}</div>
-                              )}
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="mb-1 block text-xs font-medium text-gray-600">Typ</label>
-                                  <select
-                                    value={subUploadType}
-                                    onChange={(e) => setSubUploadType(e.target.value)}
-                                    className="w-full rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a]"
-                                  >
-                                    {MATERIAL_TYPE_OPTIONS.map(o => (
-                                      <option key={o.value} value={o.value}>{o.label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-xs font-medium text-gray-600">Titel *</label>
-                                  <input
-                                    type="text"
-                                    value={subUploadTitle}
-                                    onChange={(e) => setSubUploadTitle(e.target.value)}
-                                    placeholder="Dateiname…"
-                                    className="w-full rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a]"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <label className="mb-1 block text-xs font-medium text-gray-600">Datei *</label>
-                                <input
-                                  ref={subFileInputRef}
-                                  type="file"
-                                  accept=".pdf,.doc,.docx"
-                                  onChange={(e) => setSubUploadFile(e.target.files?.[0] ?? null)}
-                                  className="w-full text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-[#e6f4f4] file:px-2 file:py-0.5 file:text-xs file:font-medium file:text-[#2d8a8a]"
-                                />
-                              </div>
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => { setSubtaskUploadIdx(null); setSubUploadError(null); }}
-                                  className="text-xs text-gray-500 hover:text-gray-700"
-                                >
-                                  Abbrechen
-                                </button>
-                                <button
-                                  onClick={() => handleSubtaskAttachmentUpload(i)}
-                                  disabled={subUploading}
-                                  className="flex items-center gap-1 rounded bg-[#2d8a8a] px-2 py-1 text-xs font-medium text-white hover:bg-[#267878] disabled:opacity-60"
-                                >
-                                  <Upload className="h-3 w-3" />
-                                  {subUploading ? 'Hochladen…' : 'Hochladen'}
-                                </button>
-                              </div>
-                            </div>
+                            <MaterialUploadForm
+                              companyId={(props as TaskModeProps).companyId}
+                              onSuccess={(material) => {
+                                updateSubtaskAttachments(i, prev => [...prev, {
+                                  label: material.title,
+                                  url: `/api/materials/${material.id}/download?redirect=true`,
+                                  type: 'material',
+                                  material_id: material.id,
+                                }]);
+                                setSubtaskUploadIdx(null);
+                              }}
+                              onCancel={() => setSubtaskUploadIdx(null)}
+                              className="mt-2"
+                            />
                           )}
 
                           {subtaskUploadIdx !== i && (
@@ -755,7 +608,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
                                 Link hinzufügen
                               </button>
                               <button
-                                onClick={() => { setSubtaskUploadIdx(i); setSubUploadError(null); }}
+                                onClick={() => setSubtaskUploadIdx(i)}
                                 className="flex items-center gap-1 text-xs text-[#2d8a8a] hover:underline"
                               >
                                 <Upload className="h-3.5 w-3.5" />
@@ -802,76 +655,25 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
               </div>
 
               {showUploadForm && (
-                <div className="mt-3 rounded-lg border bg-gray-50 p-4 space-y-3">
-                  {uploadError && (
-                    <div className="rounded bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600">Typ</label>
-                      <select
-                        value={uploadType}
-                        onChange={(e) => setUploadType(e.target.value)}
-                        className="w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
-                      >
-                        {MATERIAL_TYPE_OPTIONS.map(o => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600">Titel *</label>
-                      <input
-                        type="text"
-                        value={uploadTitle}
-                        onChange={(e) => setUploadTitle(e.target.value)}
-                        placeholder="Dateiname / Titel…"
-                        className="w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a]"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600">Beschreibung</label>
-                    <textarea
-                      value={uploadDescription}
-                      onChange={(e) => setUploadDescription(e.target.value)}
-                      rows={2}
-                      placeholder="Optionale Beschreibung…"
-                      className="w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[#2d8a8a] resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600">Datei *</label>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                      className="w-full text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-[#e6f4f4] file:px-3 file:py-1 file:text-xs file:font-medium file:text-[#2d8a8a] hover:file:bg-[#d0ecec]"
-                    />
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => { setShowUploadForm(false); setUploadError(null); }}
-                      className="text-sm text-gray-500 hover:text-gray-700"
-                    >
-                      Abbrechen
-                    </button>
-                    <button
-                      onClick={handleAttachmentUpload}
-                      disabled={uploading}
-                      className="flex items-center gap-1.5 rounded-md bg-[#2d8a8a] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#267878] disabled:opacity-60"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      {uploading ? 'Hochladen…' : 'Hochladen'}
-                    </button>
-                  </div>
-                </div>
+                <MaterialUploadForm
+                  companyId={(props as TaskModeProps).companyId}
+                  onSuccess={(material) => {
+                    setAttachments(prev => [...prev, {
+                      label: material.title,
+                      url: `/api/materials/${material.id}/download?redirect=true`,
+                      type: 'material',
+                      material_id: material.id,
+                    }]);
+                    setShowUploadForm(false);
+                  }}
+                  onCancel={() => setShowUploadForm(false)}
+                  className="mt-3"
+                />
               )}
 
               {!showUploadForm && (
                 <button
-                  onClick={() => { setShowUploadForm(true); setUploadError(null); }}
+                  onClick={() => setShowUploadForm(true)}
                   className="mt-2 flex items-center gap-1.5 text-sm text-[#2d8a8a] hover:underline"
                 >
                   <Plus className="h-4 w-4" />
