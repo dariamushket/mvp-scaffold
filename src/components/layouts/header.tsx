@@ -30,8 +30,7 @@ const portalNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/materials", label: "Materials" },
-  { href: "/admin/task-templates", label: "Aufgaben-Vorlagen" },
-  { href: "/admin/tags", label: "Tags" },
+  { href: "/admin/library", label: "Library" },
 ];
 
 export function Header({ variant, isAuthenticated = false }: HeaderProps) {
@@ -59,7 +58,7 @@ export function Header({ variant, isAuthenticated = false }: HeaderProps) {
               href={item.href}
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                pathname === item.href ? "text-foreground" : "text-foreground/60"
+                pathname === item.href || pathname.startsWith(item.href + "/") ? "text-foreground" : "text-foreground/60"
               )}
             >
               {item.label}

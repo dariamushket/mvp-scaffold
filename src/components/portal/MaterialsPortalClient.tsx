@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Download, FileText, ChevronRight, FolderOpen, Star, Video, Package, ArrowLeft, Search, X } from "lucide-react";
-import { Material, MaterialType, TaskTag } from "@/types";
+import { Download, FileText, ChevronRight, FolderOpen, Star, Video, Package, ArrowLeft, Search, X, CheckCircle, CalendarDays } from "lucide-react";
+import { Material, MaterialType, TaskTag, LeadProduct } from "@/types";
 import { Badge } from "@/components/ui";
 
 function formatFileSize(bytes: number): string {
@@ -45,9 +45,10 @@ const TYPE_OPTIONS: { value: MaterialType | "all"; label: string }[] = [
 interface Props {
   materials: Material[];
   tags: TaskTag[];
+  leadProducts?: LeadProduct[];
 }
 
-export function MaterialsPortalClient({ materials, tags }: Props) {
+export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -164,12 +165,73 @@ export function MaterialsPortalClient({ materials, tags }: Props) {
         )}
 
         {/* PRODUKTE */}
-        {products.length > 0 && (
+        {(products.length > 0 || leadProducts.length > 0) && (
           <section>
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Produkte
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
+              {/* Lead product cards (announced / activated) */}
+              {leadProducts.map((lp) => {
+                const template = lp.product_template;
+                if (!template) return null;
+
+                if (lp.status === "announced") {
+                  return (
+                    <div
+                      key={lp.id}
+                      className="flex items-start gap-4 rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 p-5 shadow-sm text-white"
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                        <CalendarDays className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{template.name}</p>
+                        {template.description && (
+                          <p className="mt-1 text-sm text-white/80">{template.description}</p>
+                        )}
+                        <a
+                          href="/portal/sessions"
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-teal-800 transition hover:bg-white/90"
+                        >
+                          Jetzt buchen
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (lp.status === "activated") {
+                  return (
+                    <div
+                      key={lp.id}
+                      className="flex items-start gap-4 rounded-xl border bg-gradient-to-br from-white to-emerald-50 p-5 shadow-sm"
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+                        <CheckCircle className="h-6 w-6 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[#0f2b3c]">{template.name}</p>
+                        {template.description && (
+                          <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
+                        )}
+                        {template.tag_id && (
+                          <button
+                            onClick={() => navigate({ tag: template.tag_id! })}
+                            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            Materialien ansehen →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+
+              {/* Existing product-type materials */}
               {products.map((product) => (
                 <div
                   key={product.id}

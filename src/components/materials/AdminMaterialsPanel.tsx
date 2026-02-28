@@ -52,9 +52,12 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
       .catch(() => {});
   }, []);
 
+  const placeholderMaterials = materials.filter((m) => m.is_placeholder);
+  const realMaterials = materials.filter((m) => !m.is_placeholder);
+
   const filteredMaterials = filterTagId
-    ? materials.filter((m) => m.tag_id === filterTagId)
-    : materials;
+    ? realMaterials.filter((m) => m.tag_id === filterTagId)
+    : realMaterials;
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,6 +267,41 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No materials uploaded yet.</p>
+        )}
+
+        {/* Placeholder materials */}
+        {placeholderMaterials.length > 0 && (
+          <div className="border-t pt-4">
+            <h4 className="mb-3 text-sm font-medium text-amber-700 flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Ausstehende Uploads ({placeholderMaterials.length})
+            </h4>
+            <div className="space-y-2">
+              {placeholderMaterials.map((material) => (
+                <div key={material.id} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <FileText className="h-5 w-5 shrink-0 text-amber-500" />
+                  <div className="min-w-0 flex-1">
+                    <span className="truncate text-sm font-medium text-amber-800">{material.title}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline" className="shrink-0 text-xs capitalize border-amber-300 text-amber-700">
+                        {TYPE_LABELS[material.type] ?? material.type}
+                      </Badge>
+                      <span className="text-xs text-amber-600">Platzhalter — Datei ausstehend</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(material.id)}
+                    title="Entfernen"
+                    className="text-amber-700 border-amber-300 hover:bg-amber-100 shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Upload form */}

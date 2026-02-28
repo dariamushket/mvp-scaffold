@@ -205,11 +205,60 @@ export interface Material {
   company_id: string | null;   // null = shared (visible to all customers)
   uploaded_by: string;
   is_published: boolean;
+  is_placeholder: boolean;
   type: MaterialType;
   tag_id: string | null;
   tag?: TaskTag | null;
   created_at: string;
   updated_at: string;
+}
+
+// Product Template types
+export interface ProductTemplateSessionDef {
+  title: string;
+  description?: string;
+  calendly_url?: string;
+  show_on_dashboard?: boolean;
+}
+
+export interface ProductTemplateMaterialDef {
+  title: string;
+  description?: string;
+  type?: MaterialType;
+}
+
+export interface ProductTemplatePayload {
+  tasks: TaskTemplateTaskDef[];
+  sessions: ProductTemplateSessionDef[];
+  materials: ProductTemplateMaterialDef[];
+}
+
+export type ProductTemplateStatus = 'draft' | 'active' | 'archived';
+export type LeadProductStatus = 'announced' | 'activated';
+
+export interface ProductTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  tag_id: string | null;
+  status: ProductTemplateStatus;
+  created_by: string | null;
+  payload: ProductTemplatePayload;
+  created_at: string;
+  updated_at: string;
+  tag?: TaskTag | null;
+}
+
+export interface LeadProduct {
+  id: string;
+  lead_id: string;
+  product_template_id: string;
+  status: LeadProductStatus;
+  announced_at: string | null;
+  activated_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  product_template?: ProductTemplate;
 }
 
 // API Response types

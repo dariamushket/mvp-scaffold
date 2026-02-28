@@ -6,12 +6,13 @@ import { ArrowLeft, Download, Mail, Phone, Building2, Briefcase, Users, Trending
 import { AdminMaterialsPanel } from "@/components/materials/AdminMaterialsPanel";
 import { AdminSessionsPanel } from "@/components/admin/AdminSessionsPanel";
 import { AdminTasksTab } from "@/components/admin/tasks/AdminTasksTab";
+import { AdminLeadProductsTab } from "@/components/admin/AdminLeadProductsTab";
 import { SaveNotes } from "@/components/admin/SaveNotes";
 import { InviteButton } from "@/components/admin/InviteButton";
 import { listMaterialsByCompany } from "@/lib/materials";
 import { requireAdmin } from "@/lib/auth/requireRole";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DimensionScore } from "@/types";
+import { DimensionScore, LeadProduct, ProductTemplate } from "@/types";
 
 interface LeadDetailPageProps {
   params: Promise<{ id: string }>;
@@ -33,7 +34,7 @@ function getScoreColor(score: number | null): string {
   return "text-red-600";
 }
 
-type TabId = "overview" | "tasks" | "materials";
+type TabId = "overview" | "tasks" | "materials" | "products";
 
 export default async function LeadDetailPage({ params, searchParams }: LeadDetailPageProps) {
   const auth = await requireAdmin();
@@ -41,7 +42,8 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
   const { id } = await params;
   const { tab } = await searchParams;
-  const activeTab: TabId = (tab === "tasks" || tab === "materials") ? tab : "overview";
+  const activeTab: TabId =
+    tab === "tasks" || tab === "materials" || tab === "products" ? tab : "overview";
 
   const { data: lead } = await createAdminClient()
     .from("leads")
@@ -54,6 +56,20 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   const companyId = lead.company_id as string;
   const materials = await listMaterialsByCompany(companyId);
 
+  const [leadProductsResult, allProductsResult] = await Promise.all([
+    createAdminClient()
+      .from("lead_products")
+      .select("*, product_template:product_templates(*, tag:task_tags(*))")
+      .eq("lead_id", id),
+    createAdminClient()
+      .from("product_templates")
+      .select("*")
+      .eq("status", "active"),
+  ]);
+
+  const leadProducts: LeadProduct[] = (leadProductsResult.data ?? []) as LeadProduct[];
+  const allProducts: ProductTemplate[] = (allProductsResult.data ?? []) as ProductTemplate[];
+
   const dimensionScores: DimensionScore[] = Array.isArray(lead.dimension_scores)
     ? lead.dimension_scores
     : [];
@@ -64,6 +80,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: "overview", label: "Übersicht" },
     { id: "tasks", label: "Aufgaben" },
     { id: "materials", label: "Materialien" },
+    { id: "products", label: "Produkte" },
   ];
 
   return (
@@ -322,6 +339,15 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
       {/* Materialien tab */}
       {activeTab === "materials" && (
         <AdminMaterialsPanel companyId={companyId} initialMaterials={materials} />
+      )}
+
+      {/* Produkte tab */}
+      {activeTab === "products" && (
+        <AdminLeadProductsTab
+          leadId={lead.id}
+          leadProducts={leadProducts}
+          allProducts={allProducts}
+        />
       )}
     </div>
   );
