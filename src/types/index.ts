@@ -153,9 +153,9 @@ export interface TaskTemplateTaskDef {
   subtasks?: Array<{
     title: string;
     deadline_offset_days?: number;
-    attachments?: Array<{ label: string; url: string; type?: 'link' | 'material' }>;
+    attachments?: Array<{ label: string; url: string; type?: 'link' | 'material'; material_id?: string }>;
   }>;
-  attachments?: Array<{ label: string; url: string; type?: 'link' | 'material' }>;
+  attachments?: Array<{ label: string; url: string; type?: 'link' | 'material'; material_id?: string }>;
 }
 
 export interface TaskTemplate {
@@ -225,6 +225,7 @@ export interface ProductTemplateMaterialDef {
   title: string;
   description?: string;
   type?: MaterialType;
+  material_id?: string; // pre-uploaded shared material; if set, no placeholder is created on activation
 }
 
 export interface ProductTemplatePayload {

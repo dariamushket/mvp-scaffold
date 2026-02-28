@@ -148,9 +148,13 @@ export async function POST(
     }
   }
 
-  // 3. Create material placeholders
+  // 3. Create material placeholders (skip if material_id already uploaded)
   const materialDefs = Array.isArray(payload.materials) ? payload.materials : [];
   for (const matDef of materialDefs) {
+    if (matDef.material_id) {
+      // Material was pre-uploaded as shared — already accessible; no placeholder needed
+      continue;
+    }
     const { error: matError } = await adminClient.from("materials").insert({
       title: matDef.title,
       description: matDef.description ?? null,

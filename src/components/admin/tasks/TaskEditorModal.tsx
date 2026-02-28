@@ -18,8 +18,8 @@ interface SubtaskRow {
 interface SubtaskAttachmentRow { id?: string; label: string; url: string; type: 'link' | 'material'; material_id?: string; }
 interface AttachmentRow { id?: string; label: string; url: string; type: 'link' | 'material'; material_id?: string; }
 
-// Template-mode subtask definition (link-only, no file upload in template context)
-interface TemplateLinkRow { label: string; url: string; }
+// Template-mode attachment row (links + uploaded shared materials)
+interface TemplateLinkRow { label: string; url: string; type?: 'link' | 'material'; material_id?: string; }
 
 // For task mode
 interface TaskModeProps {
@@ -117,6 +117,9 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
 
   // Subtask attachment upload form state (task mode) — keyed by subtask index
   const [subtaskUploadIdx, setSubtaskUploadIdx] = useState<number | null>(null);
+
+  // Template mode: file upload state per task def index
+  const [templateUploadTaskIdx, setTemplateUploadTaskIdx] = useState<number | null>(null);
 
   // ── Helper: add a link attachment row to a subtask (task mode) ──
   function updateSubtaskAttachments(subtaskIdx: number, update: (prev: SubtaskAttachmentRow[]) => SubtaskAttachmentRow[]) {
@@ -342,7 +345,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
   }
 
   function addLinkToTaskDef(i: number) {
-    const atts = [...(taskDefs[i].attachments ?? []), { label: '', url: '' }];
+    const atts = [...(taskDefs[i].attachments ?? []), { label: '', url: '', type: 'link' as const }];
     updateTaskDef(i, { attachments: atts });
   }
 
@@ -547,7 +550,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
                                   className="flex-1 rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a] bg-white"
                                 />
                                 <input
-                                  type="url"
+                                  type="text"
                                   value={a.url}
                                   onChange={(e) => updateSubtaskAttachments(i, prev => {
                                     const next = [...prev]; next[k] = { ...next[k], url: e.target.value }; return next;
@@ -738,44 +741,109 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
                         </button>
                       </div>
 
-                      {/* Expanded: subtasks + links */}
+                      {/* Expanded: description + tag + attachments + subtasks */}
                       {isDefExpanded && (
                         <div className="border-t px-3 pb-3 pt-2 space-y-3">
-                          {/* Link attachments for parent task def */}
+                          {/* Description per task def */}
                           <div>
-                            <p className="mb-1.5 text-xs font-medium text-gray-500">Links (Aufgabe)</p>
+                            <p className="mb-1 text-xs font-medium text-gray-500">Beschreibung</p>
+                            <textarea
+                              value={def.description ?? ''}
+                              onChange={(e) => updateTaskDef(i, { description: e.target.value || undefined })}
+                              rows={2}
+                              placeholder="Optionale Beschreibung…"
+                              className="w-full rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a] bg-white resize-none"
+                            />
+                          </div>
+
+                          {/* Tag per task def */}
+                          <div>
+                            <p className="mb-1 text-xs font-medium text-gray-500">Tag</p>
+                            <TagSelect
+                              tags={localTags}
+                              value={def.tag_id ?? null}
+                              onChange={(id) => updateTaskDef(i, { tag_id: id ?? undefined })}
+                              onTagCreated={handleTagCreated}
+                            />
+                          </div>
+
+                          {/* Attachments for parent task def (links + uploaded files) */}
+                          <div>
+                            <p className="mb-1.5 text-xs font-medium text-gray-500">Anhänge (Aufgabe)</p>
                             <div className="space-y-1.5">
                               {(def.attachments ?? []).map((a, k) => (
-                                <div key={k} className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={a.label}
-                                    onChange={(e) => updateTaskDefLink(i, k, { label: e.target.value })}
-                                    placeholder="Bezeichnung…"
-                                    className="flex-1 rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a] bg-white"
-                                  />
-                                  <input
-                                    type="url"
-                                    value={a.url}
-                                    onChange={(e) => updateTaskDefLink(i, k, { url: e.target.value })}
-                                    placeholder="https://…"
-                                    className="flex-1 rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a] bg-white"
-                                  />
+                                a.material_id ? (
+                                  // Uploaded file — show as chip
+                                  <div key={k} className="flex items-center justify-between gap-2 rounded border bg-white px-2 py-1.5">
+                                    <span className="flex-1 truncate text-xs text-gray-800">{a.label}</span>
+                                    <span className="shrink-0 rounded-full bg-[#e6f4f4] px-1.5 py-0.5 text-[10px] font-medium text-[#2d8a8a]">Datei</span>
+                                    <button onClick={() => removeLinkFromTaskDef(i, k)} className="text-gray-400 hover:text-red-500 shrink-0">
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div key={k} className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={a.label}
+                                      onChange={(e) => updateTaskDefLink(i, k, { label: e.target.value })}
+                                      placeholder="Bezeichnung…"
+                                      className="flex-1 rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a] bg-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={a.url}
+                                      onChange={(e) => updateTaskDefLink(i, k, { url: e.target.value })}
+                                      placeholder="https://…"
+                                      className="flex-1 rounded border px-2 py-1 text-xs outline-none focus:border-[#2d8a8a] bg-white"
+                                    />
+                                    <button
+                                      onClick={() => removeLinkFromTaskDef(i, k)}
+                                      className="text-gray-400 hover:text-red-500 shrink-0"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                )
+                              ))}
+
+                              {/* Upload form for template task attachment */}
+                              {templateUploadTaskIdx === i && (
+                                <MaterialUploadForm
+                                  companyId={null}
+                                  onSuccess={(material) => {
+                                    const atts = [...(taskDefs[i].attachments ?? []), {
+                                      label: material.title,
+                                      url: `/api/materials/${material.id}/download?redirect=true`,
+                                      type: 'material' as const,
+                                      material_id: material.id,
+                                    }];
+                                    updateTaskDef(i, { attachments: atts });
+                                    setTemplateUploadTaskIdx(null);
+                                  }}
+                                  onCancel={() => setTemplateUploadTaskIdx(null)}
+                                  className="mt-1"
+                                />
+                              )}
+
+                              {templateUploadTaskIdx !== i && (
+                                <div className="flex items-center gap-3">
                                   <button
-                                    onClick={() => removeLinkFromTaskDef(i, k)}
-                                    className="text-gray-400 hover:text-red-500 shrink-0"
+                                    onClick={() => addLinkToTaskDef(i)}
+                                    className="flex items-center gap-1 text-xs text-[#2d8a8a] hover:underline"
                                   >
-                                    <X className="h-3.5 w-3.5" />
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Link hinzufügen
+                                  </button>
+                                  <button
+                                    onClick={() => setTemplateUploadTaskIdx(i)}
+                                    className="flex items-center gap-1 text-xs text-[#2d8a8a] hover:underline"
+                                  >
+                                    <Upload className="h-3.5 w-3.5" />
+                                    Datei hochladen
                                   </button>
                                 </div>
-                              ))}
-                              <button
-                                onClick={() => addLinkToTaskDef(i)}
-                                className="flex items-center gap-1 text-xs text-[#2d8a8a] hover:underline"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                Link hinzufügen
-                              </button>
+                              )}
                             </div>
                           </div>
 
@@ -841,7 +909,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
                                               className="flex-1 rounded border px-2 py-0.5 text-xs outline-none focus:border-[#2d8a8a]"
                                             />
                                             <input
-                                              type="url"
+                                              type="text"
                                               value={a.url}
                                               onChange={(e) => updateSubDefLink(i, j, k, { url: e.target.value })}
                                               placeholder="https://…"
