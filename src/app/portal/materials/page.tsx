@@ -5,6 +5,7 @@ import { listMaterialsForPortal } from "@/lib/materials";
 import { TaskTag, LeadProduct } from "@/types";
 import { MaterialsPortalClient } from "@/components/portal/MaterialsPortalClient";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 async function fetchTags(): Promise<TaskTag[]> {
   const supabase = await createClient();
@@ -17,7 +18,7 @@ async function fetchTags(): Promise<TaskTag[]> {
 }
 
 async function fetchLeadProducts(companyId: string): Promise<LeadProduct[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("lead_products")
     .select("*, product_template:product_templates(*, tag:task_tags(*))")

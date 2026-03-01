@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireRole";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMaterialById } from "@/lib/materials";
 
 export async function GET(
   request: NextRequest,
@@ -14,14 +13,29 @@ export async function GET(
 
   const { id } = await params;
 
-  // Fetch material — RLS enforces that customers only see their company's published materials
-  const material = await getMaterialById(id);
+  // Use admin client to bypass RLS, then apply explicit authorization
+  const adminClient = createAdminClient();
+  const { data: material } = await adminClient
+    .from("materials")
+    .select("*")
+    .eq("id", id)
+    .single();
+
   if (!material) {
-    return NextResponse.json({ error: "Material not found or access denied" }, { status: 403 });
+    return NextResponse.json({ error: "Material not found" }, { status: 404 });
+  }
+
+  // Non-admins may only access materials belonging to their own company or shared materials
+  if (auth.profile.role !== "admin") {
+    const allowed =
+      material.company_id === auth.profile.company_id ||
+      material.company_id === null;
+    if (!allowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
   }
 
   // Generate a time-limited signed URL (1 hour)
-  const adminClient = createAdminClient();
   const { data: signedUrlData, error: signedUrlError } = await adminClient.storage
     .from("materials")
     .createSignedUrl(material.storage_path, 3600);

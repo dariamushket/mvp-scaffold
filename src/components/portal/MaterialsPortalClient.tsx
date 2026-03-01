@@ -96,46 +96,48 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
     return (
       <div className="space-y-10">
         {/* ESSENTIAL */}
-        <section>
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Essential
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {scorecard && (
-              <button
-                onClick={() => downloadMaterial(scorecard.id)}
-                className="group flex items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md hover:border-[#0f2b3c]/30"
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50">
-                  <Star className="h-6 w-6 text-amber-500" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-[#0f2b3c]">Executive Scorecard</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{scorecard.title}</p>
-                </div>
-                <Download className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-              </button>
-            )}
+        {(scorecard || hasMeetingNotes) && (
+          <section>
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Essential
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {scorecard && (
+                <button
+                  onClick={() => downloadMaterial(scorecard.id)}
+                  className="group flex items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md hover:border-[#0f2b3c]/30"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50">
+                    <Star className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#0f2b3c]">Executive Scorecard</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{scorecard.title}</p>
+                  </div>
+                  <Download className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+                </button>
+              )}
 
-            {hasMeetingNotes && (
-              <button
-                onClick={() => navigate({ type: "meeting_notes" })}
-                className="group flex items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md hover:border-[#0f2b3c]/30"
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50">
-                  <Video className="h-6 w-6 text-blue-500" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-[#0f2b3c]">Meeting Notes</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {materials.filter((m) => m.type === "meeting_notes").length} Dokumente
-                  </p>
-                </div>
-                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-              </button>
-            )}
-          </div>
-        </section>
+              {hasMeetingNotes && (
+                <button
+                  onClick={() => navigate({ type: "meeting_notes" })}
+                  className="group flex items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md hover:border-[#0f2b3c]/30"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+                    <Video className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#0f2b3c]">Meeting Notes</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {materials.filter((m) => m.type === "meeting_notes").length} Dokumente
+                    </p>
+                  </div>
+                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* DIMENSIONEN */}
         {dimensionTags.length > 0 && (

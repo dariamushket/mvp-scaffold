@@ -689,7 +689,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
           {/* ── TEMPLATE MODE: Task defs with subtasks + link attachments ── */}
           {!isTaskMode && (
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Aufgaben-Definitionen</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Aufgaben</label>
               <div className="space-y-3">
                 {taskDefs.map((def, i) => {
                   const isDefExpanded = expandedDefIdx.has(i);
@@ -954,7 +954,7 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
                   className="flex items-center gap-1.5 text-sm text-[#2d8a8a] hover:underline"
                 >
                   <Plus className="h-4 w-4" />
-                  Aufgaben-Definition hinzufügen
+                  Aufgabe hinzufügen
                 </button>
               </div>
             </div>

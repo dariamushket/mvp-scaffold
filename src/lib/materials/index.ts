@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Material } from "@/types";
 
 export async function listMaterialsByCompany(companyId: string): Promise<Material[]> {
@@ -58,11 +59,12 @@ export async function listSharedMaterials(): Promise<Material[]> {
 }
 
 export async function listMaterialsForPortal(companyId: string): Promise<Material[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("materials")
     .select("*, tag:task_tags(*)")
     .eq("is_published", true)
+    .eq("is_placeholder", false)
     .or(`company_id.eq.${companyId},company_id.is.null`)
     .order("created_at", { ascending: false });
 

@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle } from "lucide-react";
 import { Button, Card, CardContent } from "@/components/ui";
 import { Calendar, MapPin } from "lucide-react";
 import { requireAuth } from "@/lib/auth/requireRole";
 import { getProfile } from "@/lib/auth/getProfile";
 import { createClient } from "@/lib/supabase/server";
-import { DimensionScore, Session, Task, TaskTag } from "@/types";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DimensionScore, LeadProduct, Session, Task, TaskTag } from "@/types";
 
 const FALLBACK_BOOKING_URL = "https://calendly.com/tcinar/psei";
 
@@ -75,11 +76,13 @@ export default async function PortalDashboardPage() {
   let hasBooked = false;
   let allTasks: Task[] = [];
   let tags: TaskTag[] = [];
+  let leadProducts: LeadProduct[] = [];
 
   if (profile.company_id) {
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
 
-    const [leadRes, sessionsRes, tasksRes, tagsRes] = await Promise.all([
+    const [leadRes, sessionsRes, tasksRes, tagsRes, leadProductsRes] = await Promise.all([
       supabase
         .from("leads")
         .select("first_name, total_score, typology_name, bottleneck_dimension, dimension_scores")
@@ -98,11 +101,17 @@ export default async function PortalDashboardPage() {
       supabase
         .from("task_tags")
         .select("*"),
+      adminSupabase
+        .from("lead_products")
+        .select("*, product_template:product_templates(*, tag:task_tags(*))")
+        .eq("lead_id", profile.company_id)
+        .order("created_at", { ascending: false }),
     ]);
 
     lead = leadRes.data;
     allTasks = (tasksRes.data ?? []) as Task[];
     tags = (tagsRes.data ?? []) as TaskTag[];
+    leadProducts = (leadProductsRes.data ?? []) as LeadProduct[];
 
     const sessions = (sessionsRes.data ?? []) as Session[];
     const now = new Date();
@@ -321,6 +330,73 @@ export default async function PortalDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Meine Produkte */}
+      {leadProducts.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-4 text-xl font-semibold text-[#0f2b3c]">Meine Produkte</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {leadProducts.map((lp) => {
+              const template = lp.product_template;
+              if (!template) return null;
+
+              if (lp.status === "announced") {
+                return (
+                  <div
+                    key={lp.id}
+                    className="flex items-start gap-4 rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 p-5 shadow-sm text-white"
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                      <CalendarDays className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{template.name}</p>
+                      {template.description && (
+                        <p className="mt-1 text-sm text-white/80">{template.description}</p>
+                      )}
+                      <a
+                        href={FALLBACK_BOOKING_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-teal-800 transition hover:bg-white/90"
+                      >
+                        Jetzt buchen
+                      </a>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (lp.status === "activated") {
+                return (
+                  <div
+                    key={lp.id}
+                    className="flex items-start gap-4 rounded-xl border bg-gradient-to-br from-white to-emerald-50 p-5 shadow-sm"
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+                      <CheckCircle className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[#0f2b3c]">{template.name}</p>
+                      {template.description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
+                      )}
+                      <Link
+                        href="/portal/materials"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+                      >
+                        Materialien ansehen →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              }
+
+              return null;
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Dimensions Overview */}
       {dimensionScores.length > 0 && (
