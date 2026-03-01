@@ -219,7 +219,7 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
                       {material.title}
                     </span>
                     {material.uploader?.role === 'customer' && !seenMaterialIds.has(material.id) && (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                      <span className="shrink-0 rounded-full bg-[#FECACA] px-1.5 py-0.5 text-[10px] font-medium text-red-700">
                         Neu
                       </span>
                     )}

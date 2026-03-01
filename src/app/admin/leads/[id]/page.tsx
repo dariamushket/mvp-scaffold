@@ -65,29 +65,41 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   const taskIdList = (taskIdsData ?? []).map((t: { id: string }) => t.id);
 
   // ── Tab badge data (always fetch, lightweight) ──────────────────────────
+  // author_id/uploaded_by → auth.users FK, so we query profiles separately
   const [badgeCommentRes, badgeDoneRes, badgeMaterialRes] = await Promise.all([
     taskIdList.length > 0
       ? adminClient.from("task_comments")
-          .select("created_at, profile:profiles!author_id(role)")
+          .select("created_at, author_id")
           .in("task_id", taskIdList)
-          .order("created_at", { ascending: false }).limit(20)
-      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+          .order("created_at", { ascending: false }).limit(50)
+      : Promise.resolve({ data: [] as { created_at: string; author_id: string }[] }),
     adminClient.from("tasks")
       .select("updated_at")
       .eq("company_id", companyId).eq("status", "done")
       .order("updated_at", { ascending: false }).limit(1),
     adminClient.from("materials")
-      .select("created_at, uploader:profiles!uploaded_by(role)")
+      .select("created_at, uploaded_by")
       .eq("company_id", companyId).eq("is_placeholder", false)
-      .order("created_at", { ascending: false }).limit(20),
+      .order("created_at", { ascending: false }).limit(50),
   ]);
 
+  // Resolve roles for comment authors and material uploaders
+  const badgeUserIds = Array.from(new Set([
+    ...(badgeCommentRes.data ?? []).map((c: { author_id: string }) => c.author_id),
+    ...(badgeMaterialRes.data ?? []).map((m: { uploaded_by: string }) => m.uploaded_by),
+  ].filter(Boolean))) as string[];
+  const badgeRoleMap: Record<string, string> = {};
+  if (badgeUserIds.length > 0) {
+    const { data: profileRows } = await adminClient.from("profiles").select("id, role").in("id", badgeUserIds);
+    (profileRows ?? []).forEach((p: { id: string; role: string }) => { badgeRoleMap[p.id] = p.role; });
+  }
+
   const latestCustomerComment = (badgeCommentRes.data ?? []).find(
-    (c: Record<string, unknown>) => (c.profile as { role: string } | null)?.role === 'customer'
+    (c: { author_id: string }) => badgeRoleMap[c.author_id] === 'customer'
   );
   const latestDoneTask = (badgeDoneRes.data ?? [])[0] as { updated_at: string } | undefined;
   const latestCustomerMat = (badgeMaterialRes.data ?? []).find(
-    (m: Record<string, unknown>) => (m.uploader as { role: string } | null)?.role === 'customer'
+    (m: { uploaded_by: string }) => badgeRoleMap[m.uploaded_by] === 'customer'
   );
 
   const tasksTabLatest = [
@@ -105,47 +117,62 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   let events: ActivityEvent[] = [];
 
   if (activeTab === "overview") {
+    type CommentRow = { id: string; body: string; created_at: string; author_id: string };
+    type DoneTaskRow = { id: string; title: string; updated_at: string };
+    type MaterialRow = { id: string; title: string; type: string; created_at: string; uploaded_by: string };
+
     const [commentsRes, doneTasksRes, materialsRes] = await Promise.all([
       taskIdList.length > 0
         ? adminClient.from("task_comments")
-            .select("id, body, created_at, author_id, task_id, profile:profiles!author_id(role)")
+            .select("id, body, created_at, author_id")
             .in("task_id", taskIdList).order("created_at", { ascending: false }).limit(10)
-        : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+        : Promise.resolve({ data: [] as CommentRow[] }),
       adminClient.from("tasks")
         .select("id, title, updated_at")
         .eq("company_id", companyId).eq("status", "done")
         .order("updated_at", { ascending: false }).limit(5),
       adminClient.from("materials")
-        .select("id, title, type, created_at, uploader:profiles!uploaded_by(role)")
+        .select("id, title, type, created_at, uploaded_by")
         .eq("company_id", companyId).eq("is_placeholder", false)
         .order("created_at", { ascending: false }).limit(10),
     ]);
 
+    // Resolve user roles for comments and materials
+    const activityUserIds = Array.from(new Set([
+      ...(commentsRes.data ?? []).map((c: CommentRow) => c.author_id),
+      ...(materialsRes.data ?? []).map((m: MaterialRow) => m.uploaded_by),
+    ].filter(Boolean))) as string[];
+    const activityRoleMap: Record<string, string> = {};
+    if (activityUserIds.length > 0) {
+      const { data: profileRows } = await adminClient.from("profiles").select("id, role").in("id", activityUserIds);
+      (profileRows ?? []).forEach((p: { id: string; role: string }) => { activityRoleMap[p.id] = p.role; });
+    }
+
     events = [
       // Customer comments only
-      ...(commentsRes.data ?? [])
-        .filter((c: Record<string, unknown>) => (c.profile as { role: string } | null)?.role === 'customer')
-        .map((c: Record<string, unknown>) => ({
-          id: c.id as string,
+      ...(commentsRes.data ?? [] as CommentRow[])
+        .filter((c: CommentRow) => activityRoleMap[c.author_id] === 'customer')
+        .map((c: CommentRow) => ({
+          id: c.id,
           type: 'comment' as const,
-          label: `Kommentar: "${(c.body as string).slice(0, 60)}${(c.body as string).length > 60 ? '…' : ''}"`,
-          timestamp: c.created_at as string,
+          label: `Kommentar: "${c.body.slice(0, 60)}${c.body.length > 60 ? '…' : ''}"`,
+          timestamp: c.created_at,
         })),
       // Recently completed tasks
-      ...(doneTasksRes.data ?? []).map((t: Record<string, unknown>) => ({
-        id: t.id as string,
+      ...(doneTasksRes.data ?? [] as DoneTaskRow[]).map((t: DoneTaskRow) => ({
+        id: t.id,
         type: 'task_done' as const,
         label: `Aufgabe erledigt: ${t.title}`,
-        timestamp: t.updated_at as string,
+        timestamp: t.updated_at,
       })),
       // Customer-uploaded materials only
-      ...(materialsRes.data ?? [])
-        .filter((m: Record<string, unknown>) => (m.uploader as { role: string } | null)?.role === 'customer')
-        .map((m: Record<string, unknown>) => ({
-          id: m.id as string,
+      ...(materialsRes.data ?? [] as MaterialRow[])
+        .filter((m: MaterialRow) => activityRoleMap[m.uploaded_by] === 'customer')
+        .map((m: MaterialRow) => ({
+          id: m.id,
           type: 'material' as const,
           label: `Material hochgeladen: ${m.title}`,
-          timestamp: m.created_at as string,
+          timestamp: m.created_at,
         })),
     ].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 8);
   }

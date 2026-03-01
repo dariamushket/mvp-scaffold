@@ -61,7 +61,7 @@ export function LeadTabNav({ leadId, activeTab, tabs, tabLatestAt }: LeadTabNavP
           >
             {t.label}
             {hasBadge(t.id) && (
-              <span className="absolute -top-0.5 -right-2.5 h-2 w-2 rounded-full bg-amber-400" />
+              <span className="absolute -top-0.5 -right-2.5 h-2 w-2 rounded-full bg-[#FECACA]" />
             )}
           </Link>
         ))}

@@ -6,7 +6,7 @@ export async function listMaterialsByCompany(companyId: string): Promise<Materia
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("*, tag:task_tags(*), uploader:profiles!uploaded_by(role)")
+    .select("*, tag:task_tags(*)")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
@@ -14,7 +14,26 @@ export async function listMaterialsByCompany(companyId: string): Promise<Materia
     console.error("Error fetching materials:", error);
     return [];
   }
-  return (data ?? []) as Material[];
+
+  const materials = (data ?? []) as Material[];
+
+  // uploaded_by → auth.users FK (not profiles), so query profiles separately
+  const uploaderIds = Array.from(new Set(materials.map((m) => m.uploaded_by).filter(Boolean))) as string[];
+  if (uploaderIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .in("id", uploaderIds);
+    const roleMap = Object.fromEntries(
+      (profileRows ?? []).map((p: { id: string; role: string }) => [p.id, p.role])
+    );
+    return materials.map((m) => ({
+      ...m,
+      uploader: m.uploaded_by ? { role: (roleMap[m.uploaded_by] ?? null) as 'admin' | 'customer' } : null,
+    }));
+  }
+
+  return materials;
 }
 
 export async function listAllMaterials(): Promise<Material[]> {

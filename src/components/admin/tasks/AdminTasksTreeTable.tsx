@@ -128,7 +128,7 @@ export function AdminTasksTreeTable({
                         <span className={`ml-1 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                           seenTaskIds.has(task.id)
                             ? "bg-gray-100 text-gray-500"
-                            : "bg-amber-100 text-amber-700"
+                            : "bg-[#FECACA] text-red-700"
                         }`}>
                           <MessageSquare className="h-3 w-3" />
                           {task.comment_count}
