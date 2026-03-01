@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth/requireRole";
 import { getProfile } from "@/lib/auth/getProfile";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { KanbanBoard } from "@/components/tasks/KanbanBoard";
 import { Task, TaskTag } from "@/types";
 
@@ -41,7 +42,7 @@ export default async function PortalTasksPage() {
       const authorIds = Array.from(
         new Set(commentRows.map((c: { author_id: string }) => c.author_id))
       ) as string[];
-      const { data: profileRows } = await supabase
+      const { data: profileRows } = await createAdminClient()
         .from("profiles")
         .select("id, role")
         .in("id", authorIds);

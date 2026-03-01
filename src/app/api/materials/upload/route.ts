@@ -56,10 +56,12 @@ export async function POST(request: NextRequest) {
   }
 
   const materialId = crypto.randomUUID();
+  // Sanitize filename: replace spaces and non-ASCII/special chars that break storage paths
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   // Shared materials go into a "shared/" prefix; company-specific into "{companyId}/"
   const storagePath = companyId
-    ? `${companyId}/${materialId}/${file.name}`
-    : `shared/${materialId}/${file.name}`;
+    ? `${companyId}/${materialId}/${safeName}`
+    : `shared/${materialId}/${safeName}`;
 
   const adminClient = createAdminClient();
   const fileBuffer = await file.arrayBuffer();
