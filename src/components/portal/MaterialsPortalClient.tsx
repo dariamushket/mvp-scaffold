@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Download, FileText, ChevronRight, FolderOpen, Star, Video, Package, ArrowLeft, Search, X, CheckCircle, CalendarDays } from "lucide-react";
 import { Material, MaterialType, TaskTag, LeadProduct } from "@/types";
@@ -61,6 +61,21 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
   const [activeType, setActiveType] = useState<MaterialType | "all">("all");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
+  // Preview modal state
+  const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!previewMaterial) {
+      setPreviewUrl(null);
+      return;
+    }
+    fetch(`/api/materials/${previewMaterial.id}/download`)
+      .then((r) => r.json())
+      .then((data) => setPreviewUrl(data.signedUrl ?? null))
+      .catch(() => setPreviewUrl(null));
+  }, [previewMaterial]);
+
   const allMaterials = useMemo(() => {
     return materials.filter((m) => {
       const matchSearch =
@@ -104,7 +119,7 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {scorecard && (
                 <button
-                  onClick={() => downloadMaterial(scorecard.id)}
+                  onClick={() => setPreviewMaterial(scorecard)}
                   className="group flex items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md hover:border-[#0f2b3c]/30"
                 >
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50">
@@ -272,6 +287,15 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
             <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
           </button>
         </div>
+
+        {previewMaterial && (
+          <MaterialPreviewModal
+            material={previewMaterial}
+            previewUrl={previewUrl}
+            onDownload={() => downloadMaterial(previewMaterial.id)}
+            onClose={() => setPreviewMaterial(null)}
+          />
+        )}
       </div>
     );
   }
@@ -311,7 +335,8 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
             {filtered.map((material) => (
               <div
                 key={material.id}
-                className="flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm"
+                className="flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm cursor-pointer hover:shadow-md transition"
+                onClick={() => setPreviewMaterial(material)}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
                   <FileText className="h-5 w-5 text-slate-500" />
@@ -322,16 +347,19 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
                     {formatFileSize(material.size_bytes)} · {formatDate(material.created_at)}
                   </p>
                 </div>
-                <button
-                  onClick={() => downloadMaterial(material.id)}
-                  className="shrink-0 rounded-lg border p-2 transition hover:bg-slate-50"
-                  title="Download"
-                >
-                  <Download className="h-4 w-4 text-muted-foreground" />
-                </button>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </div>
             ))}
           </div>
+        )}
+
+        {previewMaterial && (
+          <MaterialPreviewModal
+            material={previewMaterial}
+            previewUrl={previewUrl}
+            onDownload={() => downloadMaterial(previewMaterial.id)}
+            onClose={() => setPreviewMaterial(null)}
+          />
         )}
       </div>
     );
@@ -475,11 +503,11 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => downloadMaterial(material.id)}
+                      onClick={() => setPreviewMaterial(material)}
                       className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:bg-slate-50"
                     >
-                      <Download className="h-3.5 w-3.5" />
-                      Download
+                      <FileText className="h-3.5 w-3.5" />
+                      Ansehen
                     </button>
                   </td>
                 </tr>
@@ -488,6 +516,73 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
           </table>
         </div>
       )}
+
+      {previewMaterial && (
+        <MaterialPreviewModal
+          material={previewMaterial}
+          previewUrl={previewUrl}
+          onDownload={() => downloadMaterial(previewMaterial.id)}
+          onClose={() => setPreviewMaterial(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Preview Modal ─────────────────────────────────────────────────────────────
+
+interface PreviewModalProps {
+  material: Material;
+  previewUrl: string | null;
+  onDownload: () => void;
+  onClose: () => void;
+}
+
+function MaterialPreviewModal({ material, previewUrl, onDownload, onClose }: PreviewModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div
+        className="relative flex w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl"
+        style={{ maxHeight: "90vh" }}
+      >
+        <div className="flex items-center justify-between border-b p-4">
+          <div>
+            <p className="font-semibold text-[#0f2b3c]">{material.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {TYPE_LABELS[material.type]} · {formatFileSize(material.size_bytes)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onDownload}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" /> Download
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden p-2" style={{ minHeight: "60vh" }}>
+          {previewUrl && material.mime_type === "application/pdf" ? (
+            <iframe
+              src={previewUrl}
+              className="h-full w-full rounded"
+              title={material.title}
+              style={{ minHeight: "60vh" }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <FileText className="mb-3 h-12 w-12" />
+              <p className="text-sm">Vorschau nicht verfügbar. Bitte herunterladen.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

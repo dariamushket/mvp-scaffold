@@ -21,13 +21,18 @@ export async function GET(request: NextRequest) {
     }
     const { data, error } = await createAdminClient()
       .from("tasks")
-      .select("*, tag:task_tags(*), subtasks(*, attachments:subtask_attachments(*)), attachments:task_attachments(*)")
+      .select("*, tag:task_tags(*), subtasks(*, attachments:subtask_attachments(*)), attachments:task_attachments(*), comments:task_comments(count)")
       .eq("company_id", companyId)
       .order("status")
       .order("position");
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+
+    const mapped = (data ?? []).map((t: Record<string, unknown>) => {
+      const countArr = t.comments as { count: number }[] | undefined;
+      return { ...t, comment_count: countArr?.[0]?.count ?? 0, comments: undefined };
+    });
+    return NextResponse.json(mapped);
   }
 
   // Customer: RLS enforces company scoping

@@ -96,6 +96,7 @@ export interface Task {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  comment_count?: number;
   // optional joined relations
   tag?: TaskTag | null;
   subtasks?: Subtask[];
@@ -209,6 +210,7 @@ export interface Material {
   type: MaterialType;
   tag_id: string | null;
   tag?: TaskTag | null;
+  uploader?: { role: 'admin' | 'customer' } | null;
   created_at: string;
   updated_at: string;
 }

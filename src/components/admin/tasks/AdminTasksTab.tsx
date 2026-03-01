@@ -11,13 +11,15 @@ import { UseTemplateModal } from "./UseTemplateModal";
 
 interface AdminTasksTabProps {
   companyId: string;
+  currentUserId: string;
 }
 
-export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
+export function AdminTasksTab({ companyId, currentUserId }: AdminTasksTabProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<TaskTag[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [seenTaskIds, setSeenTaskIds] = useState<Set<string>>(new Set());
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
 
   // Modals
@@ -41,6 +43,16 @@ export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+
+  // Seed seenTaskIds from localStorage
+  useEffect(() => {
+    try {
+      const seen = JSON.parse(localStorage.getItem("task_comments_seen") ?? "{}");
+      setSeenTaskIds(new Set(Object.keys(seen)));
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
 
   function handleSelectId(id: string, checked: boolean) {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
@@ -183,9 +195,14 @@ export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
           tasks={filteredTasks}
           tags={tags}
           selectedIds={selectedIds}
+          seenTaskIds={seenTaskIds}
           onSelectId={handleSelectId}
           onSelectAll={handleSelectAll}
-          onOpenTask={(task) => setEditingTask(task)}
+          onOpenTask={(task) => {
+            setEditingTask(task);
+            // Mark as seen immediately when opening
+            setSeenTaskIds(prev => { const next = new Set(prev); next.add(task.id); return next; });
+          }}
         />
       )}
 
@@ -223,6 +240,7 @@ export function AdminTasksTab({ companyId }: AdminTasksTabProps) {
           companyId={companyId}
           tags={tags}
           initialTask={editingTask}
+          currentUserId={currentUserId}
           onSave={async () => {
             setEditingTask(null);
             await loadTasks();

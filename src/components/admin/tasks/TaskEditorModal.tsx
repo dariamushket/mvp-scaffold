@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plus, Trash2, Upload, ChevronDown, ChevronRight, Link } from "lucide-react";
 import { Button } from "@/components/ui";
 import { TagSelect } from "@/components/ui/TagSelect";
 import { MaterialUploadForm } from "@/components/materials/MaterialUploadForm";
+import { CommentThread } from "@/components/tasks/CommentThread";
 import { Task, TaskTag, TaskTemplate, TaskTemplateTaskDef, TaskStatus, SubtaskAttachment } from "@/types";
 
 interface SubtaskRow {
@@ -27,6 +28,7 @@ interface TaskModeProps {
   companyId: string;
   tags: TaskTag[];
   initialTask?: Task;
+  currentUserId?: string;
   onSave: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onClose: () => void;
@@ -111,6 +113,15 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
 
   const [loading, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Mark this task as seen in localStorage when modal opens
+  useEffect(() => {
+    if (!isTaskMode) return;
+    const taskId = (props as TaskModeProps).initialTask?.id;
+    if (!taskId) return;
+    const seen = JSON.parse(localStorage.getItem("task_comments_seen") ?? "{}");
+    localStorage.setItem("task_comments_seen", JSON.stringify({ ...seen, [taskId]: Date.now() }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parent task attachment upload form state (task mode)
   const [showUploadForm, setShowUploadForm] = useState(false);
@@ -683,6 +694,18 @@ export function TaskEditorModal(props: TaskEditorModalProps) {
                   Anhang hochladen
                 </button>
               )}
+            </div>
+          )}
+
+          {/* ── TASK MODE: Comments (only when editing an existing task) ── */}
+          {isTaskMode && (props as TaskModeProps).initialTask && (props as TaskModeProps).currentUserId && (
+            <div className="border-t pt-4">
+              <h3 className="mb-3 text-xs font-semibold uppercase text-gray-500">Kommentare</h3>
+              <CommentThread
+                taskId={(props as TaskModeProps).initialTask!.id}
+                currentUserId={(props as TaskModeProps).currentUserId!}
+                currentUserRole="admin"
+              />
             </div>
           )}
 

@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronRight, ChevronDown, Paperclip } from "lucide-react";
+import { ChevronRight, ChevronDown, Paperclip, MessageSquare } from "lucide-react";
 import { Task, TaskTag, TaskStatus } from "@/types";
 
 interface AdminTasksTreeTableProps {
   tasks: Task[];
   tags: TaskTag[];
   selectedIds: string[];
+  seenTaskIds: Set<string>;
   onSelectId: (id: string, checked: boolean) => void;
   onSelectAll: (checked: boolean) => void;
   onOpenTask: (task: Task) => void;
@@ -34,6 +35,7 @@ export function AdminTasksTreeTable({
   tasks,
   tags,
   selectedIds,
+  seenTaskIds,
   onSelectId,
   onSelectAll,
   onOpenTask,
@@ -122,6 +124,16 @@ export function AdminTasksTreeTable({
                       >
                         {task.title}
                       </button>
+                      {(task.comment_count ?? 0) > 0 && (
+                        <span className={`ml-1 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          seenTaskIds.has(task.id)
+                            ? "bg-gray-100 text-gray-500"
+                            : "bg-amber-100 text-amber-700"
+                        }`}>
+                          <MessageSquare className="h-3 w-3" />
+                          {task.comment_count}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">

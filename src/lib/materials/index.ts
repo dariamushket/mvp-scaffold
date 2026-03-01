@@ -3,10 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Material } from "@/types";
 
 export async function listMaterialsByCompany(companyId: string): Promise<Material[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("*, tag:task_tags(*)")
+    .select("*, tag:task_tags(*), uploader:profiles!uploaded_by(role)")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 

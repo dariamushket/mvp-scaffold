@@ -7,6 +7,7 @@ import { AdminMaterialsPanel } from "@/components/materials/AdminMaterialsPanel"
 import { AdminSessionsPanel } from "@/components/admin/AdminSessionsPanel";
 import { AdminTasksTab } from "@/components/admin/tasks/AdminTasksTab";
 import { AdminLeadProductsTab } from "@/components/admin/AdminLeadProductsTab";
+import { LeadTabNav } from "@/components/admin/LeadTabNav";
 import { SaveNotes } from "@/components/admin/SaveNotes";
 import { InviteButton } from "@/components/admin/InviteButton";
 import { listMaterialsByCompany } from "@/lib/materials";
@@ -56,6 +57,99 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   const companyId = lead.id;
   const materials = await listMaterialsByCompany(companyId);
 
+  const adminClient = createAdminClient();
+
+  // Fetch task IDs once — used for both badge queries and activity feed
+  const { data: taskIdsData } = await adminClient
+    .from("tasks").select("id").eq("company_id", companyId);
+  const taskIdList = (taskIdsData ?? []).map((t: { id: string }) => t.id);
+
+  // ── Tab badge data (always fetch, lightweight) ──────────────────────────
+  const [badgeCommentRes, badgeDoneRes, badgeMaterialRes] = await Promise.all([
+    taskIdList.length > 0
+      ? adminClient.from("task_comments")
+          .select("created_at, profile:profiles!author_id(role)")
+          .in("task_id", taskIdList)
+          .order("created_at", { ascending: false }).limit(20)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    adminClient.from("tasks")
+      .select("updated_at")
+      .eq("company_id", companyId).eq("status", "done")
+      .order("updated_at", { ascending: false }).limit(1),
+    adminClient.from("materials")
+      .select("created_at, uploader:profiles!uploaded_by(role)")
+      .eq("company_id", companyId).eq("is_placeholder", false)
+      .order("created_at", { ascending: false }).limit(20),
+  ]);
+
+  const latestCustomerComment = (badgeCommentRes.data ?? []).find(
+    (c: Record<string, unknown>) => (c.profile as { role: string } | null)?.role === 'customer'
+  );
+  const latestDoneTask = (badgeDoneRes.data ?? [])[0] as { updated_at: string } | undefined;
+  const latestCustomerMat = (badgeMaterialRes.data ?? []).find(
+    (m: Record<string, unknown>) => (m.uploader as { role: string } | null)?.role === 'customer'
+  );
+
+  const tasksTabLatest = [
+    latestCustomerComment ? (latestCustomerComment.created_at as string) : null,
+    latestDoneTask?.updated_at ?? null,
+  ].filter((t): t is string => !!t).sort().reverse()[0] ?? null;
+
+  const tabLatestAt: Partial<Record<TabId, string | null>> = {
+    tasks: tasksTabLatest,
+    materials: latestCustomerMat ? (latestCustomerMat.created_at as string) : null,
+  };
+
+  // ── Activity feed (overview tab, customer events only) ───────────────────
+  type ActivityEvent = { id: string; type: 'comment' | 'task_done' | 'material'; label: string; timestamp: string };
+  let events: ActivityEvent[] = [];
+
+  if (activeTab === "overview") {
+    const [commentsRes, doneTasksRes, materialsRes] = await Promise.all([
+      taskIdList.length > 0
+        ? adminClient.from("task_comments")
+            .select("id, body, created_at, author_id, task_id, profile:profiles!author_id(role)")
+            .in("task_id", taskIdList).order("created_at", { ascending: false }).limit(10)
+        : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+      adminClient.from("tasks")
+        .select("id, title, updated_at")
+        .eq("company_id", companyId).eq("status", "done")
+        .order("updated_at", { ascending: false }).limit(5),
+      adminClient.from("materials")
+        .select("id, title, type, created_at, uploader:profiles!uploaded_by(role)")
+        .eq("company_id", companyId).eq("is_placeholder", false)
+        .order("created_at", { ascending: false }).limit(10),
+    ]);
+
+    events = [
+      // Customer comments only
+      ...(commentsRes.data ?? [])
+        .filter((c: Record<string, unknown>) => (c.profile as { role: string } | null)?.role === 'customer')
+        .map((c: Record<string, unknown>) => ({
+          id: c.id as string,
+          type: 'comment' as const,
+          label: `Kommentar: "${(c.body as string).slice(0, 60)}${(c.body as string).length > 60 ? '…' : ''}"`,
+          timestamp: c.created_at as string,
+        })),
+      // Recently completed tasks
+      ...(doneTasksRes.data ?? []).map((t: Record<string, unknown>) => ({
+        id: t.id as string,
+        type: 'task_done' as const,
+        label: `Aufgabe erledigt: ${t.title}`,
+        timestamp: t.updated_at as string,
+      })),
+      // Customer-uploaded materials only
+      ...(materialsRes.data ?? [])
+        .filter((m: Record<string, unknown>) => (m.uploader as { role: string } | null)?.role === 'customer')
+        .map((m: Record<string, unknown>) => ({
+          id: m.id as string,
+          type: 'material' as const,
+          label: `Material hochgeladen: ${m.title}`,
+          timestamp: m.created_at as string,
+        })),
+    ].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 8);
+  }
+
   const [leadProductsResult, allProductsResult] = await Promise.all([
     createAdminClient()
       .from("lead_products")
@@ -102,24 +196,13 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         </Button>
       </PageHeader>
 
-      {/* Tab navigation */}
-      <div className="mb-6 border-b">
-        <nav className="flex gap-6">
-          {tabs.map((t) => (
-            <Link
-              key={t.id}
-              href={`/admin/leads/${id}?tab=${t.id}`}
-              className={`pb-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === t.id
-                  ? "border-[#2d8a8a] text-[#2d8a8a]"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
+      {/* Tab navigation with activity badges */}
+      <LeadTabNav
+        leadId={id}
+        activeTab={activeTab}
+        tabs={tabs}
+        tabLatestAt={tabLatestAt}
+      />
 
       {/* Übersicht tab */}
       {activeTab === "overview" && (
@@ -315,16 +398,25 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
               </CardContent>
             </Card>
 
-            {/* Timestamps */}
+            {/* Activity Feed */}
             <Card>
-              <CardHeader>
-                <CardTitle>Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Created</span>
-                  <span>{new Date(lead.created_at).toLocaleString()}</span>
-                </div>
+              <CardHeader><CardTitle>Aktivitäten</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {events.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Keine Aktivitäten.</p>
+                ) : events.map((ev) => (
+                  <div key={ev.id + ev.type} className="flex items-start gap-2.5">
+                    <span className="mt-0.5 shrink-0">
+                      {ev.type === 'comment' ? '💬' : ev.type === 'task_done' ? '✅' : '📄'}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs leading-snug text-[#0f2b3c]">{ev.label}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(ev.timestamp).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
@@ -333,7 +425,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
       {/* Aufgaben tab — pass lead.id (tasks.company_id FK = leads.id) */}
       {activeTab === "tasks" && (
-        <AdminTasksTab companyId={lead.id} />
+        <AdminTasksTab companyId={lead.id} currentUserId={auth.user.id} />
       )}
 
       {/* Materialien tab */}

@@ -36,6 +36,7 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
   const [tags, setTags] = useState<TaskTag[]>([]);
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [seenMaterialIds, setSeenMaterialIds] = useState<Set<string>>(new Set());
   const [isUploading, setIsUploading] = useState(false);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
@@ -51,6 +52,25 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
       .then((data) => setTags(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
+
+  // Seed seen materials from localStorage
+  useEffect(() => {
+    try {
+      const seen = JSON.parse(localStorage.getItem("seen_materials") ?? "[]");
+      setSeenMaterialIds(new Set(Array.isArray(seen) ? seen : []));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function markMaterialSeen(id: string) {
+    setSeenMaterialIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem("seen_materials", JSON.stringify(Array.from(next)));
+      return next;
+    });
+  }
 
   const placeholderMaterials = materials.filter((m) => m.is_placeholder);
   const realMaterials = materials.filter((m) => !m.is_placeholder);
@@ -139,6 +159,7 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
   };
 
   const handleDownload = async (id: string) => {
+    markMaterialSeen(id);
     const response = await fetch(`/api/materials/${id}/download`);
     if (!response.ok) return;
     const { signedUrl } = await response.json();
@@ -191,7 +212,17 @@ export function AdminMaterialsPanel({ companyId, initialMaterials }: AdminMateri
                 <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="truncate text-sm font-medium">{material.title}</span>
+                    <span
+                      className="truncate text-sm font-medium cursor-pointer"
+                      onClick={() => markMaterialSeen(material.id)}
+                    >
+                      {material.title}
+                    </span>
+                    {material.uploader?.role === 'customer' && !seenMaterialIds.has(material.id) && (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Neu
+                      </span>
+                    )}
                     <Badge variant="outline" className="shrink-0 text-xs capitalize">
                       {TYPE_LABELS[material.type] ?? material.type}
                     </Badge>

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { X, Calendar, Tag, Check } from "lucide-react";
-import { Task, TaskStatus, TaskTag, Subtask } from "@/types";
+import { Task, TaskStatus, TaskTag, Subtask, TaskAttachment } from "@/types";
 import { SubtaskChecklist } from "./SubtaskChecklist";
 import { CommentThread } from "./CommentThread";
 import { AttachmentList } from "./AttachmentList";
+import { TaskFileUpload } from "./TaskFileUpload";
 
 interface TaskDrawerProps {
   task: Task;
@@ -48,6 +49,7 @@ export function TaskDrawer({
 }: TaskDrawerProps) {
   const [currentStatus, setCurrentStatus] = useState<TaskStatus>(task.status);
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks ?? []);
+  const [localAttachments, setLocalAttachments] = useState<TaskAttachment[]>(task.attachments ?? []);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const tag = tags.find((t) => t.id === task.tag_id);
@@ -161,12 +163,21 @@ export function TaskDrawer({
             )}
 
             {/* Attachments */}
-            {(task.attachments ?? []).length > 0 && (
+            {localAttachments.length > 0 && (
               <div>
                 <h3 className="mb-3 text-xs font-semibold uppercase text-gray-400">Anhänge</h3>
-                <AttachmentList attachments={task.attachments ?? []} />
+                <AttachmentList attachments={localAttachments} />
               </div>
             )}
+
+            {/* File upload */}
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-gray-400">Datei hochladen</h3>
+              <TaskFileUpload
+                taskId={task.id}
+                onUploaded={(att) => setLocalAttachments((prev) => [...prev, att])}
+              />
+            </div>
 
             {/* Comments */}
             <div>
