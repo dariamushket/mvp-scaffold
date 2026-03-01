@@ -54,7 +54,9 @@ export function TaskCard({ task, tags, hasNewComment = false, onOpenDrawer }: Ta
       }`}
     >
       {hasNewComment && (
-        <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#FECACA]" />
+        <span className="absolute right-3 top-3 rounded-full bg-[#FECACA] px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+          Neu
+        </span>
       )}
       <button
         onClick={() => onOpenDrawer(task.id)}

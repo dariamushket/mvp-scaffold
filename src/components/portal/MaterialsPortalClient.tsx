@@ -58,15 +58,32 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [], late
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"essential" | "all">("essential");
-  // When customer last viewed "Alle Materialien" tab (for badge)
+  // When customer last viewed "Alle Materialien" tab (for tab-level badge)
   const [allTabSeenAt, setAllTabSeenAt] = useState<number>(0);
+  // Per-material seen tracking (for row-level "Neu" badges)
+  const [seenMaterialIds, setSeenMaterialIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem("portal_materials_all_seen");
       if (stored) setAllTabSeenAt(parseInt(stored, 10));
     } catch { /* ignore */ }
-  }, []);
+
+    // Per-material seen IDs: initialize with all current IDs on first visit
+    // so existing materials don't show "Neu" on first login
+    try {
+      const key = "portal_seen_material_ids";
+      const raw = localStorage.getItem(key);
+      if (raw === null) {
+        // First visit — seed with all current material IDs
+        const allIds = materials.map((m) => m.id);
+        localStorage.setItem(key, JSON.stringify(allIds));
+        setSeenMaterialIds(new Set(allIds));
+      } else {
+        setSeenMaterialIds(new Set(JSON.parse(raw)));
+      }
+    } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasNewMaterial =
     !!latestAdminMaterialAt &&
@@ -77,6 +94,18 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [], late
     setActiveTab("all");
     setAllTabSeenAt(now);
     try { localStorage.setItem("portal_materials_all_seen", String(now)); } catch { /* ignore */ }
+  }
+
+  function markMaterialSeen(id: string) {
+    setSeenMaterialIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      try {
+        localStorage.setItem("portal_seen_material_ids", JSON.stringify(Array.from(next)));
+      } catch { /* ignore */ }
+      return next;
+    });
   }
 
   // All-materials search/filter state
@@ -155,7 +184,7 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [], late
               <div
                 key={material.id}
                 className="flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm cursor-pointer hover:shadow-md transition"
-                onClick={() => setPreviewMaterial(material)}
+                onClick={() => { setPreviewMaterial(material); markMaterialSeen(material.id); }}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
                   <FileText className="h-5 w-5 text-slate-500" />
@@ -502,6 +531,11 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [], late
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="font-medium text-[#0f2b3c]">{material.title}</span>
+                      {!seenMaterialIds.has(material.id) && (
+                        <span className="shrink-0 rounded-full bg-[#FECACA] px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          Neu
+                        </span>
+                      )}
                     </div>
                     {material.description && (
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -534,7 +568,7 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [], late
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => setPreviewMaterial(material)}
+                      onClick={() => { setPreviewMaterial(material); markMaterialSeen(material.id); }}
                       className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:bg-slate-50"
                     >
                       <FileText className="h-3.5 w-3.5" />
