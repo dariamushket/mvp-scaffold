@@ -53,7 +53,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
   if (!lead) redirect("/admin/leads");
 
-  const companyId = lead.company_id as string;
+  const companyId = lead.id;
   const materials = await listMaterialsByCompany(companyId);
 
   const [leadProductsResult, allProductsResult] = await Promise.all([
