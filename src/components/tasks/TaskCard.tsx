@@ -8,6 +8,7 @@ import { Task, TaskTag } from "@/types";
 interface TaskCardProps {
   task: Task;
   tags: TaskTag[];
+  hasNewComment?: boolean;
   onOpenDrawer: (taskId: string) => void;
 }
 
@@ -20,7 +21,7 @@ function formatDeadline(deadline: string): string {
   return new Date(deadline).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
 }
 
-export function TaskCard({ task, tags, onOpenDrawer }: TaskCardProps) {
+export function TaskCard({ task, tags, hasNewComment = false, onOpenDrawer }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -52,6 +53,9 @@ export function TaskCard({ task, tags, onOpenDrawer }: TaskCardProps) {
         isDragging ? "shadow-lg" : ""
       }`}
     >
+      {hasNewComment && (
+        <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#FECACA]" />
+      )}
       <button
         onClick={() => onOpenDrawer(task.id)}
         className="block w-full text-left"

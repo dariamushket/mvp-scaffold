@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -21,6 +21,7 @@ interface KanbanBoardProps {
   tags: TaskTag[];
   currentUserId: string;
   currentUserRole: "admin" | "customer";
+  latestAdminCommentAt?: Record<string, string>;
 }
 
 const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
@@ -34,9 +35,40 @@ export function KanbanBoard({
   tags,
   currentUserId,
   currentUserRole,
+  latestAdminCommentAt = {},
 }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [activeDrawerTaskId, setActiveDrawerTaskId] = useState<string | null>(null);
+  // taskId → JS timestamp when customer last opened that task
+  const [taskSeenAt, setTaskSeenAt] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("portal_task_comment_seen") ?? "{}");
+      if (stored && typeof stored === "object") setTaskSeenAt(stored);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function markTaskSeen(taskId: string) {
+    const now = Date.now();
+    setTaskSeenAt((prev) => {
+      const next = { ...prev, [taskId]: now };
+      try {
+        localStorage.setItem("portal_task_comment_seen", JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
+  function hasNewAdminComment(taskId: string): boolean {
+    const latestAt = latestAdminCommentAt[taskId];
+    if (!latestAt) return false;
+    return new Date(latestAt).getTime() > (taskSeenAt[taskId] ?? 0);
+  }
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -250,7 +282,11 @@ export function KanbanBoard({
               tasks={getColumnTasks(col.status)}
               tags={tags}
               accentColor={col.color}
-              onOpenDrawer={(taskId) => setActiveDrawerTaskId(taskId)}
+              hasNewComment={hasNewAdminComment}
+              onOpenDrawer={(taskId) => {
+                setActiveDrawerTaskId(taskId);
+                markTaskSeen(taskId);
+              }}
             />
           ))}
         </div>

@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   tasks: Task[];
   tags: TaskTag[];
   accentColor: string;
+  hasNewComment?: (taskId: string) => boolean;
   onOpenDrawer: (taskId: string) => void;
   onAddTask?: () => void;
 }
@@ -22,6 +23,7 @@ export function KanbanColumn({
   tasks,
   tags,
   accentColor,
+  hasNewComment,
   onOpenDrawer,
   onAddTask,
 }: KanbanColumnProps) {
@@ -77,6 +79,7 @@ export function KanbanColumn({
                 key={task.id}
                 task={task}
                 tags={tags}
+                hasNewComment={hasNewComment?.(task.id) ?? false}
                 onOpenDrawer={onOpenDrawer}
               />
             ))

@@ -26,6 +26,38 @@ export default async function PortalTasksPage() {
   const tasks: Task[] = tasksResult.data ?? [];
   const tags: TaskTag[] = tagsResult.data ?? [];
 
+  // Build map of taskId → latest admin comment timestamp
+  // author_id → auth.users FK (not profiles), so look up roles separately
+  const latestAdminCommentAt: Record<string, string> = {};
+  if (tasks.length > 0) {
+    const taskIds = tasks.map((t) => t.id);
+    const { data: commentRows } = await supabase
+      .from("task_comments")
+      .select("task_id, author_id, created_at")
+      .in("task_id", taskIds)
+      .order("created_at", { ascending: false });
+
+    if (commentRows && commentRows.length > 0) {
+      const authorIds = Array.from(
+        new Set(commentRows.map((c: { author_id: string }) => c.author_id))
+      ) as string[];
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, role")
+        .in("id", authorIds);
+      const roleMap = Object.fromEntries(
+        (profileRows ?? []).map((p: { id: string; role: string }) => [p.id, p.role])
+      );
+      for (const c of commentRows as { task_id: string; author_id: string; created_at: string }[]) {
+        if (roleMap[c.author_id] === "admin") {
+          if (!latestAdminCommentAt[c.task_id] || c.created_at > latestAdminCommentAt[c.task_id]) {
+            latestAdminCommentAt[c.task_id] = c.created_at;
+          }
+        }
+      }
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -41,6 +73,7 @@ export default async function PortalTasksPage() {
         tags={tags}
         currentUserId={auth.user.id}
         currentUserRole={profile.role}
+        latestAdminCommentAt={latestAdminCommentAt}
       />
     </div>
   );
