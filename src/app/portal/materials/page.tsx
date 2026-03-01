@@ -37,6 +37,38 @@ export default async function PortalMaterialsPage() {
     profile?.company_id ? fetchLeadProducts(profile.company_id) : Promise.resolve([]),
   ]);
 
+  // Find the latest admin-uploaded material timestamp for the badge
+  // uploaded_by → auth.users FK (not profiles), so look up roles separately
+  let latestAdminMaterialAt: string | null = null;
+  if (profile?.company_id) {
+    const adminClient = createAdminClient();
+    const { data: matRows } = await adminClient
+      .from("materials")
+      .select("created_at, uploaded_by")
+      .eq("company_id", profile.company_id)
+      .eq("is_published", true)
+      .eq("is_placeholder", false)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (matRows && matRows.length > 0) {
+      const uploaderIds = Array.from(
+        new Set(matRows.map((m: { uploaded_by: string }) => m.uploaded_by))
+      ) as string[];
+      const { data: profileRows } = await adminClient
+        .from("profiles")
+        .select("id, role")
+        .in("id", uploaderIds);
+      const roleMap = Object.fromEntries(
+        (profileRows ?? []).map((p: { id: string; role: string }) => [p.id, p.role])
+      );
+      const latestAdminMat = (matRows as { created_at: string; uploaded_by: string }[]).find(
+        (m) => roleMap[m.uploaded_by] === "admin"
+      );
+      latestAdminMaterialAt = latestAdminMat?.created_at ?? null;
+    }
+  }
+
   return (
     <div>
       <div className="mb-8">
@@ -44,7 +76,12 @@ export default async function PortalMaterialsPage() {
         <p className="mt-1 text-muted-foreground">Ihre Ressourcen und Dokumente</p>
       </div>
       <Suspense fallback={null}>
-        <MaterialsPortalClient materials={materials} tags={tags} leadProducts={leadProducts} />
+        <MaterialsPortalClient
+          materials={materials}
+          tags={tags}
+          leadProducts={leadProducts}
+          latestAdminMaterialAt={latestAdminMaterialAt}
+        />
       </Suspense>
     </div>
   );

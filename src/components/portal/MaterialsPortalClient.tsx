@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Download, FileText, ChevronRight, FolderOpen, Star, Video, Package, ArrowLeft, Search, X, CheckCircle, CalendarDays } from "lucide-react";
+import { Download, FileText, ChevronRight, Star, Video, Package, ArrowLeft, Search, X, CheckCircle, CalendarDays } from "lucide-react";
 import { Material, MaterialType, TaskTag, LeadProduct } from "@/types";
 import { Badge } from "@/components/ui";
 
@@ -46,17 +46,40 @@ interface Props {
   materials: Material[];
   tags: TaskTag[];
   leadProducts?: LeadProduct[];
+  latestAdminMaterialAt?: string | null;
 }
 
-export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Props) {
+export function MaterialsPortalClient({ materials, tags, leadProducts = [], latestAdminMaterialAt }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const view = searchParams.get("view");
   const tagFilter = searchParams.get("tag");
   const typeFilter = searchParams.get("type") as MaterialType | null;
 
-  // All-materials view state (always declared — rules of hooks)
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"essential" | "all">("essential");
+  // When customer last viewed "Alle Materialien" tab (for badge)
+  const [allTabSeenAt, setAllTabSeenAt] = useState<number>(0);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("portal_materials_all_seen");
+      if (stored) setAllTabSeenAt(parseInt(stored, 10));
+    } catch { /* ignore */ }
+  }, []);
+
+  const hasNewMaterial =
+    !!latestAdminMaterialAt &&
+    new Date(latestAdminMaterialAt).getTime() > allTabSeenAt;
+
+  function switchToAllTab() {
+    const now = Date.now();
+    setActiveTab("all");
+    setAllTabSeenAt(now);
+    try { localStorage.setItem("portal_materials_all_seen", String(now)); } catch { /* ignore */ }
+  }
+
+  // All-materials search/filter state
   const [search, setSearch] = useState("");
   const [activeType, setActiveType] = useState<MaterialType | "all">("all");
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -96,19 +119,114 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
     router.push(`?${p.toString()}`);
   };
 
-  // ── Home view ──────────────────────────────────────────────────────────────
-  if (!view && !tagFilter && !typeFilter) {
-    const scorecard = materials.find((m) => m.type === "scorecard");
-    const hasMeetingNotes = materials.some((m) => m.type === "meeting_notes");
-    const products = materials.filter((m) => m.type === "product");
-
-    // Only show dimension tags that actually have published materials
-    const dimensionTagIds = new Set(
-      materials.filter((m) => m.tag_id !== null).map((m) => m.tag_id as string)
-    );
-    const dimensionTags = tags.filter((t) => dimensionTagIds.has(t.id));
+  // ── Filtered view (by tag or type) — keeps deep-link navigation working ──
+  if (tagFilter || typeFilter) {
+    const tag = tagFilter ? tags.find((t) => t.id === tagFilter) : null;
+    const filtered = materials.filter((m) => {
+      if (tagFilter) return m.tag_id === tagFilter;
+      if (typeFilter) return m.type === typeFilter;
+      return true;
+    });
+    const heading = tag?.name ?? (typeFilter ? TYPE_LABELS[typeFilter] : "Materialien");
 
     return (
+      <div className="space-y-6">
+        <button
+          onClick={() => router.push("?")}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Zurück
+        </button>
+
+        <div className="flex items-center gap-3">
+          {tag && (
+            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: tag.color }} />
+          )}
+          <h2 className="text-2xl font-bold text-[#0f2b3c]">{heading}</h2>
+          <span className="text-sm text-muted-foreground">({filtered.length})</span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="text-muted-foreground">Keine Materialien in dieser Kategorie.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {filtered.map((material) => (
+              <div
+                key={material.id}
+                className="flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm cursor-pointer hover:shadow-md transition"
+                onClick={() => setPreviewMaterial(material)}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                  <FileText className="h-5 w-5 text-slate-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-[#0f2b3c]">{material.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatFileSize(material.size_bytes)} · {formatDate(material.created_at)}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {previewMaterial && (
+          <MaterialPreviewModal
+            material={previewMaterial}
+            previewUrl={previewUrl}
+            onDownload={() => downloadMaterial(previewMaterial.id)}
+            onClose={() => setPreviewMaterial(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Tab view (Essential | Alle Materialien) ────────────────────────────────
+  const scorecard = materials.find((m) => m.type === "scorecard");
+  const hasMeetingNotes = materials.some((m) => m.type === "meeting_notes");
+  const products = materials.filter((m) => m.type === "product");
+
+  const dimensionTagIds = new Set(
+    materials.filter((m) => m.tag_id !== null).map((m) => m.tag_id as string)
+  );
+  const dimensionTags = tags.filter((t) => dimensionTagIds.has(t.id));
+
+  return (
+    <div>
+      {/* Tab navigation */}
+      <div className="mb-6 border-b">
+        <nav className="flex gap-6">
+          <button
+            onClick={() => setActiveTab("essential")}
+            className={`pb-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === "essential"
+                ? "border-[#2d8a8a] text-[#2d8a8a]"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Essential
+          </button>
+          <button
+            onClick={switchToAllTab}
+            className={`relative pb-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === "all"
+                ? "border-[#2d8a8a] text-[#2d8a8a]"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Alle Materialien
+            {hasNewMaterial && (
+              <span className="absolute -top-0.5 -right-2.5 h-2 w-2 rounded-full bg-[#FECACA]" />
+            )}
+          </button>
+        </nav>
+      </div>
+
+      {/* Essential tab */}
+      {activeTab === "essential" && (
       <div className="space-y-10">
         {/* ESSENTIAL */}
         {(scorecard || hasMeetingNotes) && (
@@ -276,18 +394,6 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
           </section>
         )}
 
-        {/* Alle Materialien link */}
-        <div className="border-t pt-4">
-          <button
-            onClick={() => navigate({ view: "all" })}
-            className="group inline-flex items-center gap-2 text-sm font-medium text-[#0f2b3c] hover:underline"
-          >
-            <FolderOpen className="h-4 w-4" />
-            Alle Materialien ansehen
-            <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-          </button>
-        </div>
-
         {previewMaterial && (
           <MaterialPreviewModal
             material={previewMaterial}
@@ -297,86 +403,11 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
           />
         )}
       </div>
-    );
-  }
+      )}
 
-  // ── Filtered view (by tag or type) ────────────────────────────────────────
-  if (tagFilter || typeFilter) {
-    const tag = tagFilter ? tags.find((t) => t.id === tagFilter) : null;
-    const filtered = materials.filter((m) => {
-      if (tagFilter) return m.tag_id === tagFilter;
-      if (typeFilter) return m.type === typeFilter;
-      return true;
-    });
-    const heading = tag?.name ?? (typeFilter ? TYPE_LABELS[typeFilter] : "Materialien");
-
-    return (
+      {/* Alle Materialien tab */}
+      {activeTab === "all" && (
       <div className="space-y-6">
-        <button
-          onClick={() => router.push("?")}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Zurück
-        </button>
-
-        <div className="flex items-center gap-3">
-          {tag && (
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: tag.color }} />
-          )}
-          <h2 className="text-2xl font-bold text-[#0f2b3c]">{heading}</h2>
-          <span className="text-sm text-muted-foreground">({filtered.length})</span>
-        </div>
-
-        {filtered.length === 0 ? (
-          <p className="text-muted-foreground">Keine Materialien in dieser Kategorie.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {filtered.map((material) => (
-              <div
-                key={material.id}
-                className="flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm cursor-pointer hover:shadow-md transition"
-                onClick={() => setPreviewMaterial(material)}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                  <FileText className="h-5 w-5 text-slate-500" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-[#0f2b3c]">{material.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(material.size_bytes)} · {formatDate(material.created_at)}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {previewMaterial && (
-          <MaterialPreviewModal
-            material={previewMaterial}
-            previewUrl={previewUrl}
-            onDownload={() => downloadMaterial(previewMaterial.id)}
-            onClose={() => setPreviewMaterial(null)}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // ── All Materials view (?view=all) ─────────────────────────────────────────
-  return (
-    <div className="space-y-6">
-      <button
-        onClick={() => router.push("?")}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Zurück
-      </button>
-
-      <h2 className="text-2xl font-bold text-[#0f2b3c]">Alle Materialien</h2>
 
       {/* Search + filters */}
       <div className="space-y-3">
@@ -517,13 +548,15 @@ export function MaterialsPortalClient({ materials, tags, leadProducts = [] }: Pr
         </div>
       )}
 
-      {previewMaterial && (
-        <MaterialPreviewModal
-          material={previewMaterial}
-          previewUrl={previewUrl}
-          onDownload={() => downloadMaterial(previewMaterial.id)}
-          onClose={() => setPreviewMaterial(null)}
-        />
+        {previewMaterial && (
+          <MaterialPreviewModal
+            material={previewMaterial}
+            previewUrl={previewUrl}
+            onDownload={() => downloadMaterial(previewMaterial.id)}
+            onClose={() => setPreviewMaterial(null)}
+          />
+        )}
+      </div>
       )}
     </div>
   );
