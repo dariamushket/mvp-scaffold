@@ -1,19 +1,21 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { TaskTemplate, TaskTag, ProductTemplate } from "@/types";
+import { TaskTemplate, TaskTag, ProductTemplate, Material } from "@/types";
 import { TagsClient } from "@/app/admin/tags/TagsClient";
 import { TaskTemplatesClient } from "@/app/admin/task-templates/TaskTemplatesClient";
 import { ProductTemplatesClient } from "./ProductTemplatesClient";
-import { FileText, Tag, Package, LayoutTemplate } from "lucide-react";
+import { AdminMaterialsTable } from "@/components/materials/AdminMaterialsTable";
+import { FileText, Tag, Package, LayoutTemplate, FolderOpen } from "lucide-react";
 
-type LibraryTab = "product-templates" | "task-templates" | "tags" | "material-types";
+type LibraryTab = "product-templates" | "task-templates" | "tags" | "material-types" | "materials";
 
 const TABS: { id: LibraryTab; label: string; icon: React.ReactNode }[] = [
   { id: "product-templates", label: "Produkt-Vorlagen", icon: <Package className="h-4 w-4" /> },
   { id: "task-templates", label: "Aufgaben-Vorlagen", icon: <LayoutTemplate className="h-4 w-4" /> },
   { id: "tags", label: "Tags", icon: <Tag className="h-4 w-4" /> },
   { id: "material-types", label: "Material-Typen", icon: <FileText className="h-4 w-4" /> },
+  { id: "materials", label: "Materialien", icon: <FolderOpen className="h-4 w-4" /> },
 ];
 
 const MATERIAL_TYPES = [
@@ -28,9 +30,10 @@ interface LibraryClientProps {
   tags: TaskTag[];
   productTemplates: ProductTemplate[];
   taskTemplates: TaskTemplate[];
+  sharedMaterials: Material[];
 }
 
-export function LibraryClient({ activeTab, tags, productTemplates, taskTemplates }: LibraryClientProps) {
+export function LibraryClient({ activeTab, tags, productTemplates, taskTemplates, sharedMaterials }: LibraryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -106,6 +109,10 @@ export function LibraryClient({ activeTab, tags, productTemplates, taskTemplates
             </table>
           </div>
         </div>
+      )}
+
+      {activeTab === "materials" && (
+        <AdminMaterialsTable initialMaterials={sharedMaterials} />
       )}
     </div>
   );

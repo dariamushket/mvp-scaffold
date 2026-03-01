@@ -29,7 +29,6 @@ const portalNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { href: "/admin/leads", label: "Leads" },
-  { href: "/admin/materials", label: "Materials" },
   { href: "/admin/library", label: "Library" },
 ];
 

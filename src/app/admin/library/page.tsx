@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/requireRole";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TaskTemplate, TaskTag, ProductTemplate } from "@/types";
+import { listSharedMaterials } from "@/lib/materials";
+import { TaskTemplate, TaskTag, ProductTemplate, Material } from "@/types";
 import { LibraryClient } from "./LibraryClient";
 
-type LibraryTab = "product-templates" | "task-templates" | "tags" | "material-types";
+type LibraryTab = "product-templates" | "task-templates" | "tags" | "material-types" | "materials";
 
 interface LibraryPageProps {
   searchParams: Promise<{ tab?: string }>;
@@ -16,7 +17,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
 
   const { tab } = await searchParams;
   const activeTab: LibraryTab =
-    tab === "task-templates" || tab === "tags" || tab === "material-types"
+    tab === "task-templates" || tab === "tags" || tab === "material-types" || tab === "materials"
       ? (tab as LibraryTab)
       : "product-templates";
 
@@ -39,6 +40,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const tags: TaskTag[] = (tagsResult.data ?? []) as TaskTag[];
   const productTemplates: ProductTemplate[] = (productTemplatesResult.data ?? []) as ProductTemplate[];
   const taskTemplates: TaskTemplate[] = (taskTemplatesResult.data ?? []) as TaskTemplate[];
+  const sharedMaterials: Material[] = activeTab === "materials" ? await listSharedMaterials() : [];
 
   return (
     <LibraryClient
@@ -46,6 +48,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       tags={tags}
       productTemplates={productTemplates}
       taskTemplates={taskTemplates}
+      sharedMaterials={sharedMaterials}
     />
   );
 }
