@@ -50,7 +50,7 @@ export default async function PortalScorecardPage() {
   const supabase = await createClient();
   const { data: lead } = await supabase
     .from("leads")
-    .select("first_name, last_name, total_score, current_score, typology_id, typology_name, bottleneck_dimension, bottleneck_score, dimension_scores, diagnostic_completed_at")
+    .select("first_name, last_name, total_score, current_score, current_dimension_scores, typology_id, typology_name, bottleneck_dimension, bottleneck_score, dimension_scores, diagnostic_completed_at")
     .eq("id", profile.company_id)
     .single();
 
@@ -63,9 +63,12 @@ export default async function PortalScorecardPage() {
     );
   }
 
-  const dimensionScores: DimensionScore[] = Array.isArray(lead.dimension_scores)
-    ? (lead.dimension_scores as DimensionScore[])
-    : [];
+  const rawCurrentDims = (lead as { current_dimension_scores?: unknown }).current_dimension_scores;
+  const dimensionScores: DimensionScore[] = Array.isArray(rawCurrentDims) && rawCurrentDims.length > 0
+    ? (rawCurrentDims as DimensionScore[])
+    : Array.isArray(lead.dimension_scores)
+      ? (lead.dimension_scores as DimensionScore[])
+      : [];
 
   const currentScore = (lead as { current_score?: number | null }).current_score ?? null;
   const totalScore = lead.total_score ?? 0;

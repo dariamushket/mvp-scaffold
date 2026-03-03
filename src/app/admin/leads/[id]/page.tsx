@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/shared";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { ArrowLeft, Download, Mail, Phone, Building2, Briefcase, Users, TrendingUp, CheckCircle2, CalendarCheck, FileDown } from "lucide-react";
+import { ArrowLeft, Download, Mail, Phone, Building2, Briefcase, Users, TrendingUp } from "lucide-react";
 import { AdminMaterialsPanel } from "@/components/materials/AdminMaterialsPanel";
 import { AdminSessionsPanel } from "@/components/admin/AdminSessionsPanel";
 import { AdminTasksTab } from "@/components/admin/tasks/AdminTasksTab";
@@ -210,6 +210,10 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     ? lead.dimension_scores
     : [];
 
+  const currentDimensionScores: DimensionScore[] | null = Array.isArray(lead.current_dimension_scores)
+    ? lead.current_dimension_scores
+    : null;
+
   const fullName = `${lead.first_name} ${lead.last_name}`;
 
   const tabs: { id: TabId; label: string }[] = [
@@ -316,35 +320,12 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
               </CardContent>
             </Card>
 
-            {/* Statistics Row */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-                <div className="flex items-center justify-center mb-2 text-[#2d8a8a]">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div className="text-2xl font-bold text-[#0f2b3c]">{tasksCompleted}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Aufgaben erledigt</div>
-              </div>
-              <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-                <div className="flex items-center justify-center mb-2 text-[#2d8a8a]">
-                  <CalendarCheck className="h-5 w-5" />
-                </div>
-                <div className="text-2xl font-bold text-[#0f2b3c]">{sessionsCompleted}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Sessions abgeschlossen</div>
-              </div>
-              <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
-                <div className="flex items-center justify-center mb-2 text-[#2d8a8a]">
-                  <FileDown className="h-5 w-5" />
-                </div>
-                <div className="text-2xl font-bold text-[#0f2b3c]">{materialsDownloaded}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Materialien heruntergeladen</div>
-              </div>
-            </div>
-
             {/* Current Score */}
             <LeadCurrentScore
               leadId={id}
               currentScore={lead.current_score ?? null}
+              currentDimensionScores={currentDimensionScores}
+              dimensionScores={dimensionScores}
               tasksCompleted={tasksCompleted}
               sessionsCompleted={sessionsCompleted}
               materialsDownloaded={materialsDownloaded}

@@ -70,6 +70,7 @@ export default async function PortalDashboardPage() {
     typology_name: string | null;
     bottleneck_dimension: string | null;
     dimension_scores: DimensionScore[] | null;
+    current_dimension_scores: DimensionScore[] | null;
   } | null = null;
 
   let nextSession: Session | null = null;
@@ -86,7 +87,7 @@ export default async function PortalDashboardPage() {
     const [leadRes, sessionsRes, tasksRes, tagsRes, leadProductsRes] = await Promise.all([
       supabase
         .from("leads")
-        .select("first_name, total_score, current_score, typology_name, bottleneck_dimension, dimension_scores")
+        .select("first_name, total_score, current_score, typology_name, bottleneck_dimension, dimension_scores, current_dimension_scores")
         .eq("id", profile.company_id)
         .single(),
       supabase
@@ -136,9 +137,11 @@ export default async function PortalDashboardPage() {
   const assessmentScore = lead?.total_score ?? null;
   const score = currentScore ?? assessmentScore;
   const scoreLabel = score != null ? getStatusLabel(score, 100) : "—";
-  const dimensionScores: DimensionScore[] = Array.isArray(lead?.dimension_scores)
-    ? (lead!.dimension_scores as DimensionScore[])
-    : [];
+  const dimensionScores: DimensionScore[] = Array.isArray(lead?.current_dimension_scores) && lead!.current_dimension_scores!.length > 0
+    ? (lead!.current_dimension_scores as DimensionScore[])
+    : Array.isArray(lead?.dimension_scores)
+      ? (lead!.dimension_scores as DimensionScore[])
+      : [];
 
   // Task stats
   const totalTasks = allTasks.length;

@@ -61,6 +61,7 @@ export interface Lead {
   company_id: string;
   notes: string | null;
   current_score: number | null;
+  current_dimension_scores: DimensionScore[] | null;
   portal_invite_shared_at: string | null;
   created_at: string;
 }
