@@ -60,6 +60,16 @@ export interface Lead {
   // Portal extensions
   company_id: string;
   notes: string | null;
+  current_score: number | null;
+  portal_invite_shared_at: string | null;
+  created_at: string;
+}
+
+export interface LeadNote {
+  id: string;
+  lead_id: string;
+  content: string;
+  admin_email: string;
   created_at: string;
 }
 
@@ -211,6 +221,7 @@ export interface Material {
   tag_id: string | null;
   tag?: TaskTag | null;
   uploader?: { role: 'admin' | 'customer' } | null;
+  download_count?: number;
   created_at: string;
   updated_at: string;
 }

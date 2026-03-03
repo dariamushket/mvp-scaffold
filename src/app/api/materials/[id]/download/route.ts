@@ -45,6 +45,13 @@ export async function GET(
     return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 });
   }
 
+  // Increment download_count (fire-and-forget, non-blocking)
+  adminClient
+    .from("materials")
+    .update({ download_count: (material.download_count ?? 0) + 1 })
+    .eq("id", id)
+    .then(() => {});
+
   const redirect = request.nextUrl.searchParams.get("redirect");
   if (redirect === "true") {
     return NextResponse.redirect(signedUrlData.signedUrl);

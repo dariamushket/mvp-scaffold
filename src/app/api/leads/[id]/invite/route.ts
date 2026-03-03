@@ -25,22 +25,29 @@ export async function POST(
     return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
 
-  // Send a magic link invite — the handle_new_user trigger will create
+  // Generate an invite link — the handle_new_user trigger will create
   // a profile with role='customer' and company_id=lead.id when the user
   // clicks the link and their auth account is created.
-  const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-    lead.email,
-    {
+  const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+    type: "invite",
+    email: lead.email,
+    options: {
       data: {
         company_id: lead.id,
         role: "customer",
       },
-    }
-  );
+    },
+  });
 
-  if (inviteError) {
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+  if (linkError || !linkData) {
+    return NextResponse.json({ error: linkError?.message ?? "Failed to generate link" }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  // Save when the link was generated
+  await adminClient
+    .from("leads")
+    .update({ portal_invite_shared_at: new Date().toISOString() })
+    .eq("id", id);
+
+  return NextResponse.json({ link: linkData.properties.action_link });
 }

@@ -66,6 +66,7 @@ export default async function PortalDashboardPage() {
   let lead: {
     first_name: string;
     total_score: number | null;
+    current_score: number | null;
     typology_name: string | null;
     bottleneck_dimension: string | null;
     dimension_scores: DimensionScore[] | null;
@@ -85,7 +86,7 @@ export default async function PortalDashboardPage() {
     const [leadRes, sessionsRes, tasksRes, tagsRes, leadProductsRes] = await Promise.all([
       supabase
         .from("leads")
-        .select("first_name, total_score, typology_name, bottleneck_dimension, dimension_scores")
+        .select("first_name, total_score, current_score, typology_name, bottleneck_dimension, dimension_scores")
         .eq("id", profile.company_id)
         .single(),
       supabase
@@ -131,7 +132,9 @@ export default async function PortalDashboardPage() {
   }
 
   const userName = lead?.first_name ?? "there";
-  const score = lead?.total_score ?? null;
+  const currentScore = lead?.current_score ?? null;
+  const assessmentScore = lead?.total_score ?? null;
+  const score = currentScore ?? assessmentScore;
   const scoreLabel = score != null ? getStatusLabel(score, 100) : "—";
   const dimensionScores: DimensionScore[] = Array.isArray(lead?.dimension_scores)
     ? (lead!.dimension_scores as DimensionScore[])
@@ -195,26 +198,28 @@ export default async function PortalDashboardPage() {
         <Link href="/portal/scorecard" className="block">
           <Card className="h-full rounded-xl border shadow-sm transition-colors hover:border-[#2d8a8a]/40">
             <CardContent className="p-6">
-              <p className="text-sm font-medium text-[#2d8a8a]">Ihr PSEI Score</p>
+              <p className="text-sm font-medium text-[#2d8a8a]">Aktueller Score</p>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className={`text-5xl font-bold ${score != null ? getScoreColor(score) : "text-[#0f2b3c]"}`}>
-                  {score ?? "—"}
+                <span className={`text-5xl font-bold ${currentScore != null ? getScoreColor(currentScore) : "text-[#0f2b3c]"}`}>
+                  {currentScore ?? "—"}
                 </span>
-                {score != null && (
+                {currentScore != null && (
                   <span className="text-xl text-muted-foreground">/ 100</span>
                 )}
               </div>
-              {score != null && (
+              {currentScore != null && (
                 <div className="mt-3">
                   <span
-                    className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(scoreLabel)}`}
+                    className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClass(getStatusLabel(currentScore, 100))}`}
                   >
-                    {scoreLabel}
+                    {getStatusLabel(currentScore, 100)}
                   </span>
                 </div>
               )}
-              {lead?.typology_name && (
-                <p className="mt-2 text-sm text-muted-foreground">{lead.typology_name}</p>
+              {assessmentScore != null && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  PSEI Assessment: {assessmentScore}/100
+                </p>
               )}
             </CardContent>
           </Card>

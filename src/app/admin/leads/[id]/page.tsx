@@ -2,37 +2,24 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/shared";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { ArrowLeft, Download, Mail, Phone, Building2, Briefcase, Users, TrendingUp } from "lucide-react";
+import { ArrowLeft, Download, Mail, Phone, Building2, Briefcase, Users, TrendingUp, CheckCircle2, CalendarCheck, FileDown } from "lucide-react";
 import { AdminMaterialsPanel } from "@/components/materials/AdminMaterialsPanel";
 import { AdminSessionsPanel } from "@/components/admin/AdminSessionsPanel";
 import { AdminTasksTab } from "@/components/admin/tasks/AdminTasksTab";
 import { AdminLeadProductsTab } from "@/components/admin/AdminLeadProductsTab";
 import { LeadTabNav } from "@/components/admin/LeadTabNav";
-import { SaveNotes } from "@/components/admin/SaveNotes";
-import { InviteButton } from "@/components/admin/InviteButton";
+import { PortalAccessCard } from "@/components/admin/PortalAccessCard";
+import { LeadNotesCard } from "@/components/admin/LeadNotesCard";
+import { LeadCurrentScore } from "@/components/admin/LeadCurrentScore";
+import { AssessmentResultsCard } from "@/components/admin/AssessmentResultsCard";
 import { listMaterialsByCompany } from "@/lib/materials";
 import { requireAdmin } from "@/lib/auth/requireRole";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DimensionScore, LeadProduct, ProductTemplate } from "@/types";
+import { DimensionScore, LeadNote, LeadProduct, ProductTemplate } from "@/types";
 
 interface LeadDetailPageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
-}
-
-function getDimensionStatus(score: number, maxScore: number): { label: string; color: string } {
-  const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
-  if (pct >= 80) return { label: "Stark", color: "bg-green-100 text-green-700" };
-  if (pct >= 60) return { label: "Belastbar", color: "bg-yellow-100 text-yellow-700" };
-  if (pct >= 40) return { label: "Instabil", color: "bg-orange-100 text-orange-700" };
-  return { label: "Kritisch", color: "bg-red-100 text-red-700" };
-}
-
-function getScoreColor(score: number | null): string {
-  if (score === null) return "text-muted-foreground";
-  if (score >= 70) return "text-green-600";
-  if (score >= 40) return "text-yellow-600";
-  return "text-red-600";
 }
 
 type TabId = "overview" | "tasks" | "materials" | "products";
@@ -65,7 +52,6 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   const taskIdList = (taskIdsData ?? []).map((t: { id: string }) => t.id);
 
   // ── Tab badge data (always fetch, lightweight) ──────────────────────────
-  // author_id/uploaded_by → auth.users FK, so we query profiles separately
   const [badgeCommentRes, badgeDoneRes, badgeMaterialRes] = await Promise.all([
     taskIdList.length > 0
       ? adminClient.from("task_comments")
@@ -112,16 +98,30 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     materials: latestCustomerMat ? (latestCustomerMat.created_at as string) : null,
   };
 
-  // ── Activity feed (overview tab, customer events only) ───────────────────
+  // ── Overview tab extra data ──────────────────────────────────────────────
   type ActivityEvent = { id: string; type: 'comment' | 'task_done' | 'material'; label: string; timestamp: string };
   let events: ActivityEvent[] = [];
+  let tasksCompleted = 0;
+  let sessionsCompleted = 0;
+  let materialsDownloaded = 0;
+  let isPortalActivated = false;
+  let leadNotes: LeadNote[] = [];
 
   if (activeTab === "overview") {
     type CommentRow = { id: string; body: string; created_at: string; author_id: string };
     type DoneTaskRow = { id: string; title: string; updated_at: string };
     type MaterialRow = { id: string; title: string; type: string; created_at: string; uploaded_by: string };
 
-    const [commentsRes, doneTasksRes, materialsRes] = await Promise.all([
+    const [
+      commentsRes,
+      doneTasksRes,
+      materialsRes,
+      tasksCountRes,
+      sessionsCountRes,
+      matDownloadsRes,
+      customerProfileRes,
+      leadNotesRes,
+    ] = await Promise.all([
       taskIdList.length > 0
         ? adminClient.from("task_comments")
             .select("id, body, created_at, author_id")
@@ -135,9 +135,27 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         .select("id, title, type, created_at, uploaded_by")
         .eq("company_id", companyId).eq("is_placeholder", false)
         .order("created_at", { ascending: false }).limit(10),
+      adminClient.from("tasks").select("*", { count: "exact", head: true })
+        .eq("company_id", companyId).eq("status", "done"),
+      adminClient.from("sessions").select("*", { count: "exact", head: true })
+        .eq("lead_id", id).eq("status", "completed"),
+      adminClient.from("materials").select("download_count")
+        .eq("company_id", companyId).eq("is_placeholder", false),
+      adminClient.from("profiles").select("id")
+        .eq("company_id", companyId).eq("role", "customer").maybeSingle(),
+      adminClient.from("lead_notes").select("*")
+        .eq("lead_id", id).order("created_at", { ascending: false }),
     ]);
 
-    // Resolve user roles for comments and materials
+    tasksCompleted = tasksCountRes.count ?? 0;
+    sessionsCompleted = sessionsCountRes.count ?? 0;
+    materialsDownloaded = (matDownloadsRes.data ?? []).reduce(
+      (s: number, m: { download_count: number | null }) => s + (m.download_count ?? 0), 0
+    );
+    isPortalActivated = !!customerProfileRes.data;
+    leadNotes = (leadNotesRes.data ?? []) as LeadNote[];
+
+    // Resolve user roles for activity feed
     const activityUserIds = Array.from(new Set([
       ...(commentsRes.data ?? []).map((c: CommentRow) => c.author_id),
       ...(materialsRes.data ?? []).map((m: MaterialRow) => m.uploaded_by),
@@ -149,7 +167,6 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     }
 
     events = [
-      // Customer comments only
       ...(commentsRes.data ?? [] as CommentRow[])
         .filter((c: CommentRow) => activityRoleMap[c.author_id] === 'customer')
         .map((c: CommentRow) => ({
@@ -158,14 +175,12 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
           label: `Kommentar: "${c.body.slice(0, 60)}${c.body.length > 60 ? '…' : ''}"`,
           timestamp: c.created_at,
         })),
-      // Recently completed tasks
       ...(doneTasksRes.data ?? [] as DoneTaskRow[]).map((t: DoneTaskRow) => ({
         id: t.id,
         type: 'task_done' as const,
         label: `Aufgabe erledigt: ${t.title}`,
         timestamp: t.updated_at,
       })),
-      // Customer-uploaded materials only
       ...(materialsRes.data ?? [] as MaterialRow[])
         .filter((m: MaterialRow) => activityRoleMap[m.uploaded_by] === 'customer')
         .map((m: MaterialRow) => ({
@@ -234,7 +249,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
       {/* Übersicht tab */}
       {activeTab === "overview" && (
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main Info */}
+          {/* Left column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Contact Info */}
             <Card>
@@ -301,104 +316,63 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
               </CardContent>
             </Card>
 
-            {/* Assessment Results */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Assessment Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-6 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-lg border p-4 text-center">
-                    <div className={`text-3xl font-bold ${getScoreColor(lead.total_score)}`}>
-                      {lead.total_score != null ? `${lead.total_score}/100` : "—"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">PSEI Score</div>
-                  </div>
-                  <div className="rounded-lg border p-4 text-center">
-                    <div className="text-lg font-semibold">{lead.typology_name ?? "—"}</div>
-                    <div className="text-sm text-muted-foreground">Typology</div>
-                  </div>
-                  <div className="rounded-lg border p-4 text-center">
-                    <div className="text-lg font-semibold">{lead.bottleneck_dimension ?? "—"}</div>
-                    <div className="text-sm text-muted-foreground">Primary Bottleneck</div>
-                  </div>
+            {/* Statistics Row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
+                <div className="flex items-center justify-center mb-2 text-[#2d8a8a]">
+                  <CheckCircle2 className="h-5 w-5" />
                 </div>
+                <div className="text-2xl font-bold text-[#0f2b3c]">{tasksCompleted}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Aufgaben erledigt</div>
+              </div>
+              <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
+                <div className="flex items-center justify-center mb-2 text-[#2d8a8a]">
+                  <CalendarCheck className="h-5 w-5" />
+                </div>
+                <div className="text-2xl font-bold text-[#0f2b3c]">{sessionsCompleted}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Sessions abgeschlossen</div>
+              </div>
+              <div className="rounded-xl border bg-white p-4 text-center shadow-sm">
+                <div className="flex items-center justify-center mb-2 text-[#2d8a8a]">
+                  <FileDown className="h-5 w-5" />
+                </div>
+                <div className="text-2xl font-bold text-[#0f2b3c]">{materialsDownloaded}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Materialien heruntergeladen</div>
+              </div>
+            </div>
 
-                {dimensionScores.length > 0 && (
-                  <>
-                    <h4 className="mb-3 font-medium">Dimension Breakdown</h4>
-                    <div className="space-y-3">
-                      {dimensionScores.map((dim) => {
-                        const maxScore = dim.maxScore ?? 20;
-                        const pct = dim.percentage ?? Math.round((dim.score / maxScore) * 100);
-                        const status = getDimensionStatus(dim.score, maxScore);
-                        const isBottleneck = lead.bottleneck_dimension === dim.name;
-                        return (
-                          <div
-                            key={dim.name}
-                            className={`rounded-lg border p-3 ${isBottleneck ? "border-red-200 bg-red-50/50" : ""}`}
-                          >
-                            <div className="mb-1.5 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">{dim.name}</span>
-                                {isBottleneck && (
-                                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
-                                    Bottleneck
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">
-                                  {dim.score}/{maxScore}
-                                </span>
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
-                                  {status.label}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                              <div
-                                className="h-full rounded-full bg-[#2d8a8a]"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            {/* Current Score */}
+            <LeadCurrentScore
+              leadId={id}
+              currentScore={lead.current_score ?? null}
+              tasksCompleted={tasksCompleted}
+              sessionsCompleted={sessionsCompleted}
+              materialsDownloaded={materialsDownloaded}
+            />
 
-            {/* Notes */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SaveNotes leadId={lead.id} initialNotes={lead.notes ?? ""} />
-              </CardContent>
-            </Card>
+            {/* Assessment Results (collapsible) */}
+            <AssessmentResultsCard
+              totalScore={lead.total_score ?? null}
+              typologyName={lead.typology_name ?? null}
+              bottleneckDimension={lead.bottleneck_dimension ?? null}
+              dimensionScores={dimensionScores}
+            />
 
             {/* Sessions */}
             <AdminSessionsPanel leadId={lead.id} companyId={companyId} />
           </div>
 
-          {/* Sidebar */}
+          {/* Right sidebar */}
           <div className="space-y-6">
-            {/* Invite to Portal */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Portal Access</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-3 text-sm text-muted-foreground">
-                  Send a magic link to give this lead access to their portal dashboard, scorecard, and materials.
-                </p>
-                <InviteButton leadId={lead.id} />
-              </CardContent>
-            </Card>
+            {/* Portal Access */}
+            <PortalAccessCard
+              leadId={id}
+              inviteSharedAt={lead.portal_invite_shared_at ?? null}
+              isActivated={isPortalActivated}
+            />
+
+            {/* Notes */}
+            <LeadNotesCard leadId={id} initialNotes={leadNotes} />
 
             {/* Diagnostic Info */}
             <Card>
@@ -450,7 +424,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         </div>
       )}
 
-      {/* Aufgaben tab — pass lead.id (tasks.company_id FK = leads.id) */}
+      {/* Aufgaben tab */}
       {activeTab === "tasks" && (
         <AdminTasksTab companyId={lead.id} currentUserId={auth.user.id} />
       )}

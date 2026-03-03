@@ -50,7 +50,7 @@ export default async function PortalScorecardPage() {
   const supabase = await createClient();
   const { data: lead } = await supabase
     .from("leads")
-    .select("first_name, last_name, total_score, typology_id, typology_name, bottleneck_dimension, bottleneck_score, dimension_scores, diagnostic_completed_at")
+    .select("first_name, last_name, total_score, current_score, typology_id, typology_name, bottleneck_dimension, bottleneck_score, dimension_scores, diagnostic_completed_at")
     .eq("id", profile.company_id)
     .single();
 
@@ -67,9 +67,11 @@ export default async function PortalScorecardPage() {
     ? (lead.dimension_scores as DimensionScore[])
     : [];
 
+  const currentScore = (lead as { current_score?: number | null }).current_score ?? null;
   const totalScore = lead.total_score ?? 0;
-  const overallStatus = getOverallStatus(totalScore);
-  const overallStatusClass = getOverallStatusClass(totalScore);
+  const displayScore = currentScore ?? totalScore;
+  const overallStatus = getOverallStatus(displayScore);
+  const overallStatusClass = getOverallStatusClass(displayScore);
 
   return (
     <div>
@@ -92,10 +94,10 @@ export default async function PortalScorecardPage() {
           <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left">
             <div className="sm:mr-8">
               <p className="text-sm font-medium uppercase tracking-wide text-[#2d8a8a]">
-                Gesamtergebnis
+                Aktueller Score
               </p>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-6xl font-bold text-[#0f2b3c]">{totalScore}</span>
+                <span className="text-6xl font-bold text-[#0f2b3c]">{displayScore}</span>
                 <span className="text-2xl text-muted-foreground">/ 100</span>
               </div>
               <span
@@ -103,6 +105,11 @@ export default async function PortalScorecardPage() {
               >
                 {overallStatus}
               </span>
+              {currentScore != null && lead.total_score != null && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  PSEI Assessment Score: {lead.total_score}/100
+                </p>
+              )}
             </div>
             {lead.typology_name && (
               <div className="mt-6 sm:mt-0 sm:border-l sm:pl-8">
@@ -119,7 +126,7 @@ export default async function PortalScorecardPage() {
             <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
               <div
                 className="h-full rounded-full bg-[#2d8a8a] transition-all"
-                style={{ width: `${totalScore}%` }}
+                style={{ width: `${displayScore}%` }}
               />
             </div>
           </div>
